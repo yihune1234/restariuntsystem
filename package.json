@@ -7,8 +7,10 @@
     "doc": "docs"
   },
   "scripts": {
+    "start": "npm --prefix Cafeteria-Management-System-Backend start",
     "test": "npm --prefix frontend run test && npm --prefix Cafeteria-Management-System-Backend run test:unit",
     "build": "npm --prefix frontend run build",
+    "install:backend": "npm --prefix Cafeteria-Management-System-Backend install",
     "seed": "npm --prefix Cafeteria-Management-System-Backend run seed",
     "dev:frontend": "npm --prefix frontend run dev",
     "dev:backend": "npm --prefix Cafeteria-Management-System-Backend run dev",

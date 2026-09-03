@@ -63,3 +63,6 @@ engineering_analysis*.md
 interview_prep_guide.md
 interview_qa.md
 walkthrough.md
+# --- Embedded repo backup (moved aside so backend joins the monorepo) ---
+.git.bak/
+**/.git.bak/
