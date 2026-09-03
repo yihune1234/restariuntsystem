@@ -7,7 +7,11 @@
     "doc": "docs"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "npm --prefix frontend run test && npm --prefix Cafeteria-Management-System-Backend run test:unit",
+    "build": "npm --prefix frontend run build",
+    "seed": "npm --prefix Cafeteria-Management-System-Backend run seed",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "dev:backend": "npm --prefix Cafeteria-Management-System-Backend run dev",
     "prepare": "husky"
   },
   "repository": {

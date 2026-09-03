@@ -1,84 +1,135 @@
 import { create } from "zustand";
+import { toast } from "sonner";
 import axiosInstance from "../axios/axiosInstace";
-import { toast } from "sonner"
+import { getSocket } from "../config/socket.config";
 
+/**
+ * Daily stock store. Real backend contracts:
+ *   GET    /branches/:branchId/stock/today        - all of today's stock rows
+ *   POST   /branches/:branchId/stock             - set/update prepared qty
+ *   POST   /branches/:branchId/stock/bulk        - bulk set prepared qty
+ *   PATCH  /stock/:stockId                       - update existing row
+ *
+ * Stock rows are (branchId, foodItemId, businessDate YYYY-MM-DD) unique.
+ * The backend deduces status (AVAILABLE/LOW_STOCK/SOLD_OUT) from remaining qty.
+ */
 export const useInventoryStore = create((set, get) => ({
     items: [],
     stats: null,
     isLoading: false,
     error: null,
-    pagination: {
-        totalItems: 0,
-        totalPages: 0,
-        currentPage: 1,
-        limit: 10
-    },
 
-    fetchInventory: async (page = 1, limit = 10) => {
-        set({ isLoading: true });
-        try {
-            const response = await axiosInstance.get(`/inventory?page=${page}&limit=${limit}`);
-            set({
-                items: response.data.data,
-                pagination: response.data.pagination,
-                isLoading: false
+    /** Subscribe to real-time stock updates */
+    subscribeToStockUpdates: (branchId) => {
+        const socket = getSocket();
+        const onStockUpdate = (payload) => {
+            if (!payload?.foodItemId) return;
+            set((state) => {
+                const idx = state.items.findIndex(
+                    (s) => s.foodItemId?._id === payload.foodItemId || s.foodItemId === payload.foodItemId
+                );
+                if (idx >= 0) {
+                    const next = [...state.items];
+                    next[idx] = {
+                        ...next[idx],
+                        remainingQuantity: payload.remainingQuantity,
+                        status: payload.status,
+                    };
+                    return { items: next };
+                }
+                return state;
             });
-        } catch (error) {
-            set({ error: error.response?.data?.message || "Error fetching inventory", isLoading: false });
-            toast.error(get().error);
+        };
+        const onFoodSoldOut = (payload) => {
+            if (!payload?.foodItemId) return;
+            toast.warning(`${payload.foodName || 'Item'} is now sold out!`);
+            set((state) => {
+                const idx = state.items.findIndex(
+                    (s) => s.foodItemId?._id === payload.foodItemId || s.foodItemId === payload.foodItemId
+                );
+                if (idx >= 0) {
+                    const next = [...state.items];
+                    next[idx] = { ...next[idx], status: 'SOLD_OUT', remainingQuantity: 0 };
+                    return { items: next };
+                }
+                return state;
+            });
+        };
+        socket.on("stock:updated", onStockUpdate);
+        socket.on("food:sold-out", onFoodSoldOut);
+        return () => {
+            socket.off("stock:updated", onStockUpdate);
+            socket.off("food:sold-out", onFoodSoldOut);
+        };
+    },
+
+    fetchTodayStock: async (branchId) => {
+        set({ isLoading: true, error: null });
+        try {
+            const res = await axiosInstance.get(`/branches/${branchId}/stock/today`);
+            set({ items: res.data?.data || [], isLoading: false });
+            return res.data?.data || [];
+        } catch (err) {
+            set({ isLoading: false, error: err.backendMessage || "Error fetching stock" });
+            return [];
         }
     },
 
-    fetchReports: async () => {
-        set({ isLoading: true });
+    setDailyStock: async (branchId, payload) => {
         try {
-            const response = await axiosInstance.get(`/inventory/reports`);
-            set({ stats: response.data.data, isLoading: false });
-        } catch (error) {
-            set({ error: error.response?.data?.message || "Error fetching reports", isLoading: false });
-            toast.error(get().error);
+            const res = await axiosInstance.post(
+                `/branches/${branchId}/stock`,
+                payload
+            );
+            const stock = res.data?.data;
+            // Update or insert into local list
+            set((state) => {
+                const idx = state.items.findIndex(
+                    (s) => s.foodItemId?._id === payload.foodItemId || s.foodItemId === payload.foodItemId
+                );
+                if (idx >= 0) {
+                    const next = [...state.items];
+                    next[idx] = stock;
+                    return { items: next };
+                }
+                return { items: [...state.items, stock] };
+            });
+            toast.success("Daily stock updated");
+            return { success: true, data: stock };
+        } catch (err) {
+            toast.error(err.backendMessage || "Failed to update stock");
+            return { success: false, message: err.backendMessage };
         }
     },
 
-    addStockItem: async (itemData) => {
-        set({ isLoading: true });
+    bulkSetDailyStock: async (branchId, items, businessDate) => {
         try {
-            const response = await axiosInstance.post(`/inventory`, itemData);
+            const res = await axiosInstance.post(
+                `/branches/${branchId}/stock/bulk`,
+                { items, businessDate }
+            );
+            toast.success("Bulk stock updated");
+            // Refresh local list
+            get().fetchTodayStock(branchId);
+            return { success: true, data: res.data?.data };
+        } catch (err) {
+            toast.error(err.backendMessage || "Bulk update failed");
+            return { success: false, message: err.backendMessage };
+        }
+    },
+
+    updateStock: async (stockId, payload) => {
+        try {
+            const res = await axiosInstance.patch(`/stock/${stockId}`, payload);
+            const stock = res.data?.data;
             set((state) => ({
-                items: [response.data.data, ...state.items],
-                isLoading: false
+                items: state.items.map((s) => (s._id === stockId ? stock : s)),
             }));
-            toast.success("Item added successfully");
-            get().fetchReports();
-        } catch (error) {
-            set({ isLoading: false });
-            toast.error(error.response?.data?.message || "Error adding item");
-        }
-    },
-
-    updateStockItem: async (id, updateData) => {
-        try {
-            const response = await axiosInstance.put(`/inventory/${id}`, updateData);
-            set((state) => ({
-                items: state.items.map((item) => (item._id === id ? response.data.data : item)),
-            }));
-            toast.success("Item updated successfully");
-            get().fetchReports();
-        } catch (error) {
-            toast.error(error.response?.data?.message || "Error updating item");
-        }
-    },
-
-    deleteStockItem: async (id) => {
-        try {
-            await axiosInstance.delete(`/inventory/${id}`);
-            set((state) => ({
-                items: state.items.filter((item) => item._id !== id),
-            }));
-            toast.success("Item deleted successfully");
-            get().fetchReports();
-        } catch (error) {
-            toast.error(error.response?.data?.message || "Error deleting item");
+            toast.success("Stock updated");
+            return { success: true, data: stock };
+        } catch (err) {
+            toast.error(err.backendMessage || "Failed to update stock");
+            return { success: false, message: err.backendMessage };
         }
     },
 }));

@@ -1,10 +1,65 @@
+# ==========================================================
+# Root .gitignore (monorepo: frontend/ + backend/)
+# ==========================================================
+
+# --- Local database data (NEVER commit — 100s of MB of binary data) ---
+.mongodata/
+mongodata/
+data/db/
+
+# --- Environment files (real secrets) — templates (.env.example) ARE allowed ---
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+
+# --- Dependencies ---
+node_modules/
+**/node_modules/
+
+# --- Build output ---
+dist/
+dist-ssr/
+build/
+**/dist/
+**/build/
+
+# --- Test coverage ---
+coverage/
+**/coverage/
+
+# --- Backend runtime uploads (user images) ---
+uploads/
+**/uploads/
+
+# --- Logs ---
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# --- OS / editor ---
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# --- Local planning / scratch notes (not part of the product) ---
 plan.md
-.gitignore
 optimization.md
 OP.md
-engineering_analysis.md
-engineering_analysis_2.md
+engineering_analysis*.md
 interview_prep_guide.md
 interview_qa.md
 walkthrough.md
-node_modules

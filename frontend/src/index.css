@@ -186,3 +186,13 @@ html {
 * {
   scroll-behavior: smooth;
 }
+
+/* Hide scrollbars while keeping scroll functionality (used by customer menu chips) */
+@utility scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+

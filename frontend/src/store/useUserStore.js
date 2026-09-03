@@ -1,75 +1,103 @@
 import { create } from "zustand";
-import axiosInstance from "../axios/axiosInstace";
 import { toast } from "sonner";
+import axiosInstance from "../axios/axiosInstace";
 
-const useUserStore = create((set) => ({
+/**
+ * Staff user store. Real backend contracts:
+ *   GET    /branches/:branchId/users          - list branch staff
+ *   POST   /branches/:branchId/users          - create staff
+ *   GET    /users/:userId                     - get single
+ *   PATCH  /users/:userId                     - update name/role/phone/isActive
+ *   DELETE /users/:userId                     - deactivate (soft delete)
+ */
+export const useUserStore = create((set) => ({
     staff: [],
     isLoading: false,
     error: null,
 
-    fetchStaff: async () => {
-        set({ isLoading: true });
+    /** Fetch staff assigned to a specific branch. */
+    fetchStaffByBranch: async (branchId, { role, isActive } = {}) => {
+        set({ isLoading: true, error: null });
         try {
-            const response = await axiosInstance.get("/users/staff");
-            set({ staff: response.data.staff, isLoading: false });
-        } catch (error) {
-            set({ error: error.message, isLoading: false });
-            toast.error("Failed to fetch staff");
+            const params = {};
+            if (role) params.role = role;
+            if (isActive !== undefined) params.isActive = isActive;
+            const res = await axiosInstance.get(`/branches/${branchId}/users`, { params });
+            set({ staff: res.data?.data || [], isLoading: false });
+            return res.data?.data || [];
+        } catch (err) {
+            set({ isLoading: false, error: err.backendMessage || "Failed to fetch staff" });
+            return [];
         }
     },
 
-    createNewStaff: async (staffData) => {
+    /** Fetch a single user by id (any staff can view their own). */
+    fetchUser: async (userId) => {
         set({ isLoading: true });
         try {
-            const response = await axiosInstance.post("/users/staff", staffData);
-            set((state) => ({ staff: [...state.staff, response.data.user], isLoading: false }));
-            toast.success("Staff created successfully");
-            return true;
-        } catch (error) {
-            set({ error: error.message, isLoading: false });
-            toast.error(error.response?.data?.message || "Failed to create staff");
-            return false;
+            const res = await axiosInstance.get(`/users/${userId}`);
+            return res.data?.data;
+        } catch (err) {
+            toast.error(err.backendMessage || "Failed to fetch user");
+            return null;
+        } finally {
+            set({ isLoading: false });
         }
     },
 
-    updateStaff: async (id, staffData) => {
+    /** Create new staff for a branch (Manager/Owner only). */
+    createStaff: async (branchId, payload) => {
         set({ isLoading: true });
         try {
-            const response = await axiosInstance.put(`/users/staff/${id}`, staffData);
+            const res = await axiosInstance.post(`/branches/${branchId}/users`, payload);
+            const user = res.data?.data;
+            set((state) => ({ staff: [...state.staff, user], isLoading: false }));
+            toast.success("Staff user created");
+            return { success: true, user };
+        } catch (err) {
+            set({ isLoading: false });
+            const msg = err.backendMessage || "Failed to create staff";
+            toast.error(msg);
+            return { success: false, message: msg };
+        }
+    },
+
+    /** Update a user's profile / role / active status. */
+    updateStaff: async (userId, payload) => {
+        set({ isLoading: true });
+        try {
+            const res = await axiosInstance.patch(`/users/${userId}`, payload);
+            const user = res.data?.data;
             set((state) => ({
-                staff: state.staff.map((s) => (s._id === id ? response.data.user : s)),
-                isLoading: false
+                staff: state.staff.map((s) => (s._id === userId ? user : s)),
+                isLoading: false,
             }));
-            toast.success("Staff updated successfully");
-            return true;
-        } catch (error) {
-            set({ error: error.message, isLoading: false });
-            toast.error(error.response?.data?.message || "Failed to update staff");
-            return false;
+            toast.success("Staff updated");
+            return { success: true, user };
+        } catch (err) {
+            set({ isLoading: false });
+            toast.error(err.backendMessage || "Failed to update staff");
+            return { success: false, message: err.backendMessage };
         }
     },
 
-    toggleStaffStatus: async (id) => {
+    /** Soft-delete (deactivate) a staff user. */
+    deleteStaff: async (userId) => {
         try {
-            const response = await axiosInstance.patch(`/users/staff/${id}/status`, {});
+            const res = await axiosInstance.delete(`/users/${userId}`);
+            // Backend marks isActive=false & deletedAt=now.
             set((state) => ({
-                staff: state.staff.map((s) => (s._id === id ? { ...s, isActive: response.data.isActive } : s))
+                staff: state.staff.map((s) =>
+                    s._id === userId ? { ...s, isActive: false, deletedAt: new Date().toISOString() } : s
+                ),
             }));
-            toast.success(response.data.message);
-        } catch {
-            toast.error("Failed to toggle staff status");
+            toast.success(res.data?.message || "Staff deactivated");
+            return { success: true };
+        } catch (err) {
+            toast.error(err.backendMessage || "Failed to deactivate staff");
+            return { success: false, message: err.backendMessage };
         }
     },
-
-    deleteStaff: async (id) => {
-        try {
-            await axiosInstance.delete(`/users/staff/${id}`);
-            set((state) => ({ staff: state.staff.filter((s) => s._id !== id) }));
-            toast.success("Staff deleted successfully");
-        } catch {
-            toast.error("Failed to delete staff");
-        }
-    }
 }));
 
 export default useUserStore;

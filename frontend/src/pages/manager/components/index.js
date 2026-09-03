@@ -1,0 +1,15 @@
+export { ManagerKpiCard } from "./ManagerKpiCard";
+export { default as ManagerLiveOrders } from "./ManagerLiveOrders";
+export { default as ManagerTableOverview } from "./ManagerTableOverview";
+export { default as ManagerAlerts } from "./ManagerAlerts";
+export { default as ManagerPaymentsPanel } from "./ManagerPaymentsPanel";
+export { default as ManagerStaffPanel } from "./ManagerStaffPanel";
+export { default as ManagerKitchenBoard } from "./ManagerKitchenBoard";
+export { default as ManagerComplaints } from "./ManagerComplaints";
+export { default as ManagerWasteManagement } from "./ManagerWasteManagement";
+export { default as ManagerOfflineMode } from "./ManagerOfflineMode";
+export { default as ManagerMenuDashboard } from "./ManagerMenuDashboard";
+export { default as ManagerInventoryDashboard } from "./ManagerInventoryDashboard";
+export { default as TableDetailsDrawer } from "./TableDetailsDrawer";
+export { default as OrderDetailsDrawer } from "./OrderDetailsDrawer";
+export { ManagerDashboardRealTime, ManagerOverview, ManagerLive } from "./ManagerDashboard";

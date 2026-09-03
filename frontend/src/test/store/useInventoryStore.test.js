@@ -3,22 +3,23 @@ import { useInventoryStore } from '../../store/useInventoryStore';
 
 describe('useInventoryStore', () => {
     beforeEach(() => {
-        // Clear state before each run if possible
         useInventoryStore.setState({
             items: [],
-            stats: { totalItems: 0, lowStockCount: 0, totalValue: 0, outOfStockCount: 0 },
+            stats: null,
             isLoading: false,
             error: null,
-            pagination: { page: 1, limit: 10, total: 0, pages: 0 },
-            categories: [],
         });
     });
 
-    it('should initialize with empty inventory configurations', () => {
+    it('should initialize with empty daily-stock items', () => {
         const state = useInventoryStore.getState();
         expect(state.items).toEqual([]);
         expect(state.isLoading).toBe(false);
-        expect(typeof state.fetchInventory).toBe('function');
+        // New contract: fetchTodayStock + setDailyStock
+        expect(typeof state.fetchTodayStock).toBe('function');
+        expect(typeof state.setDailyStock).toBe('function');
+        expect(typeof state.bulkSetDailyStock).toBe('function');
+        expect(typeof state.updateStock).toBe('function');
     });
 
     it('should correctly mutate optimistic loading state', () => {

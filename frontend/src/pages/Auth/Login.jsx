@@ -1,291 +1,293 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
-import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardFooter,
-    CardHeader,
-    CardTitle,
-} from '@/components/ui/card';
-import {
-    Mail,
-    Lock,
-    Eye,
-    EyeOff,
-    LogIn,
-    Fingerprint,
-    Shield,
-    Sparkles,
-    User,
-    KeyRound,
-    Smartphone,
-    Globe,
-} from 'lucide-react';
-import { Separator } from '@/components/ui/separator';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuthStore } from '../../store/useAuthStore';
+import { toast } from 'sonner';
+import {
+  Mail,
+  Lock,
+  Eye,
+  EyeOff,
+  LogIn,
+  ArrowLeft,
+  Shield,
+  Loader2,
+  UtensilsCrossed,
+  AlertCircle,
+  CheckCircle2,
+} from 'lucide-react';
+
+const DEMO_ACCOUNTS = [
+  { role: 'Owner', email: 'owner@habesha.com', hint: 'All branches access', color: 'bg-purple-100 text-purple-700 border-purple-200' },
+  { role: 'Manager', email: 'manager.bole@habesha.com', hint: 'Bole branch', color: 'bg-blue-100 text-blue-700 border-blue-200' },
+  { role: 'Cashier', email: 'cashier.bole@habesha.com', hint: 'Bole branch', color: 'bg-green-100 text-green-700 border-green-200' },
+  { role: 'Waiter', email: 'waiter.bole@habesha.com', hint: 'Bole branch', color: 'bg-amber-100 text-amber-700 border-amber-200' },
+  { role: 'Chef', email: 'kitchen.bole@habesha.com', hint: 'Kitchen display', color: 'bg-red-100 text-red-700 border-red-200' },
+];
+const DEMO_PASSWORD = 'Password123!';
 
 const Login = () => {
+  const navigate = useNavigate();
+  const { login, isLoggingIn } = useAuthStore();
 
+  const [formData, setFormData] = useState({ email: '', password: '' });
+  const [showPassword, setShowPassword] = useState(false);
+  const [errors, setErrors] = useState({});
+  const [loginError, setLoginError] = useState('');
 
-    const { login, isLoading } = useAuthStore();
+  const validateForm = () => {
+    const newErrors = {};
+    if (!formData.email.trim()) {
+      newErrors.email = 'Email is required';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      newErrors.email = 'Please enter a valid email address';
+    }
+    if (!formData.password) {
+      newErrors.password = 'Password is required';
+    }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: '' }));
+    }
+    if (loginError) setLoginError('');
+  };
 
-    const [formData, setFormData] = useState({
-        email: '',
-        password: '',
-        rememberMe: false,
-    });
-    const [showPassword, setShowPassword] = useState(false);
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!validateForm()) return;
 
-    const handleChange = (e) => {
-        const { name, value, type, checked } = e.target;
-        setFormData(prev => ({
-            ...prev,
-            [name]: type === 'checkbox' ? checked : value
-        }));
-    };
+    setLoginError('');
+    const result = await login(formData);
 
-    const handleSubmit = (e) => {
-        e.preventDefault();
-        login(formData);
-    };
+    if (!result?.success) {
+      const msg = result?.message || 'Invalid email or password';
+      if (msg.toLowerCase().includes('disabled') || msg.toLowerCase().includes('deactivated')) {
+        setLoginError('Your account has been deactivated. Please contact your manager.');
+      } else if (msg.toLowerCase().includes('not found') || msg.toLowerCase().includes('invalid')) {
+        setLoginError('Invalid email or password. Please try again.');
+      } else if (msg.toLowerCase().includes('network') || msg.toLowerCase().includes('connection')) {
+        setLoginError('Unable to connect to server. Please check your connection.');
+      } else {
+        setLoginError(msg);
+      }
+      toast.error(msg);
+    }
+  };
 
-    const handleSocialLogin = (provider) => {
-        console.log(`Social login with ${provider}`);
-        // Add social login logic here
-    };
+  const handleDemoLogin = async (email) => {
+    setLoginError('');
+    const result = await login({ email, password: DEMO_PASSWORD });
+    if (!result?.success) {
+      const msg = result?.message || 'Demo login failed';
+      setLoginError(msg);
+      toast.error(msg);
+    }
+  };
 
-    const handleForgotPassword = () => {
-        console.log('Forgot password clicked');
-        // Add forgot password logic here
-    };
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 flex flex-col">
+      {/* Back to Home */}
+      <div className="p-4">
+        <Link
+          to="/customer"
+          className="inline-flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors"
+        >
+          <ArrowLeft className="size-4" />
+          Back to Home
+        </Link>
+      </div>
 
-    return (
-        <div className="min-h-screen bg-gradient-to-br from-cyan-50 via-white to-cyan-100 dark:from-gray-950 dark:via-gray-900 dark:to-cyan-950/30 transition-colors duration-300">
-            {/* Background Patterns */}
-            <div className="absolute inset-0 overflow-hidden">
-                <div className="absolute -top-40 -right-40 w-80 h-80 bg-cyan-300/10 rounded-full blur-3xl dark:bg-cyan-500/10" />
-                <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-cyan-400/10 rounded-full blur-3xl dark:bg-cyan-600/10" />
-                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-gradient-to-r from-cyan-200/20 to-blue-200/20 rounded-full blur-3xl dark:from-cyan-700/20 dark:to-blue-900/20" />
+      {/* Main Content */}
+      <div className="flex-1 flex items-center justify-center p-4">
+        <div className="w-full max-w-md">
+          {/* Logo & Branding */}
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-cyan-500 to-cyan-600 rounded-2xl shadow-lg shadow-cyan-500/25 mb-4">
+              <UtensilsCrossed className="size-8 text-white" />
             </div>
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Tasty Station POS</h1>
+            <p className="text-slate-500 dark:text-slate-400 mt-1">Restaurant Management System</p>
+          </div>
 
-            <div className="relative flex items-center justify-center min-h-screen p-4">
-                <div className="w-full max-w-md space-y-8">
+          {/* Login Card */}
+          <Card className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm border-slate-200/50 dark:border-slate-700/50 shadow-xl">
+            <CardHeader className="space-y-1 pb-4">
+              <CardTitle className="text-xl font-semibold text-slate-900 dark:text-white">
+                Welcome back
+              </CardTitle>
+              <CardDescription className="text-slate-500 dark:text-slate-400">
+                Sign in to access your dashboard
+              </CardDescription>
+            </CardHeader>
 
-                    {/* Main Card */}
-                    <Card className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border-cyan-200/50 dark:border-cyan-800/50 shadow-xl shadow-cyan-500/5">
-                        <CardHeader className="space-y-1 pb-6">
-                            <CardTitle className="text-xl font-semibold text-gray-800 dark:text-white">
-                                Account Login
-                            </CardTitle>
-                            <CardDescription className="text-gray-600 dark:text-gray-400">
-                                Enter your credentials to access your dashboard
-                            </CardDescription>
-                        </CardHeader>
+            <form onSubmit={handleSubmit}>
+              <CardContent className="space-y-4">
+                {/* Error Alert */}
+                {loginError && (
+                  <div className="flex items-start gap-3 p-3 rounded-lg bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800">
+                    <AlertCircle className="size-5 text-red-500 mt-0.5 flex-shrink-0" />
+                    <p className="text-sm text-red-700 dark:text-red-300">{loginError}</p>
+                  </div>
+                )}
 
-                        <form onSubmit={handleSubmit}>
-                            <CardContent className="space-y-5">
-                                {/* Email Field */}
-                                <div className="space-y-2">
-                                    <Label htmlFor="email" className="text-gray-700 dark:text-gray-300">
-                                        Email Address
-                                    </Label>
-                                    <div className="relative group">
-                                        <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 group-focus-within:text-cyan-600 dark:group-focus-within:text-cyan-400 size-4 transition-colors" />
-                                        <Input
-                                            id="email"
-                                            name="email"
-                                            type="email"
-                                            placeholder="name@example.com"
-                                            className="pl-10 h-11 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 focus:border-cyan-500 focus:ring-cyan-500/20"
-                                            value={formData.email}
-                                            onChange={handleChange}
-                                            required
-                                        />
-                                    </div>
-                                </div>
-
-                                {/* Password Field */}
-                                <div className="space-y-2">
-                                    <div className="flex items-center justify-between">
-                                        <Label htmlFor="password" className="text-gray-700 dark:text-gray-300">
-                                            Password
-                                        </Label>
-                                        <Button
-                                            type="button"
-                                            variant="link"
-                                            className="h-auto p-0 text-sm text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300"
-                                            onClick={handleForgotPassword}
-                                        >
-                                            Forgot password?
-                                        </Button>
-                                    </div>
-                                    <div className="relative group">
-                                        <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 group-focus-within:text-cyan-600 dark:group-focus-within:text-cyan-400 size-4 transition-colors" />
-                                        <Input
-                                            id="password"
-                                            name="password"
-                                            type={showPassword ? "text" : "password"}
-                                            placeholder="••••••••"
-                                            className="pl-10 pr-10 h-11 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 focus:border-cyan-500 focus:ring-cyan-500/20"
-                                            value={formData.password}
-                                            onChange={handleChange}
-                                            required
-                                            minLength={8}
-                                        />
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowPassword(!showPassword)}
-                                            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors"
-                                        >
-                                            {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                                        </button>
-                                    </div>
-                                </div>
-
-                                {/* Remember Me & Terms */}
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center space-x-2">
-                                        <Checkbox
-                                            id="rememberMe"
-                                            name="rememberMe"
-                                            checked={formData.rememberMe}
-                                            onCheckedChange={(checked) =>
-                                                setFormData(prev => ({ ...prev, rememberMe: checked }))
-                                            }
-                                            className="data-[state=checked]:bg-cyan-600 data-[state=checked]:border-cyan-600"
-                                        />
-                                        <Label
-                                            htmlFor="rememberMe"
-                                            className="text-sm text-gray-700 dark:text-gray-300 cursor-pointer"
-                                        >
-                                            Remember me
-                                        </Label>
-                                    </div>
-                                    <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
-                                        <Shield className="size-3" />
-                                        <span>Secure login</span>
-                                    </div>
-                                </div>
-
-                                {/* Login Button */}
-                                <Button
-                                    type="submit"
-                                    className="w-full h-11 bg-gradient-to-r from-cyan-600 to-cyan-700 hover:from-cyan-700 hover:to-cyan-800 text-white shadow-lg shadow-cyan-600/25 hover:shadow-cyan-600/40 transition-all duration-300 group"
-                                    disabled={isLoading}
-                                >
-                                    {isLoading ? (
-                                        <>
-                                            <div className="size-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
-                                            Signing in...
-                                        </>
-                                    ) : (
-                                        <>
-                                            <LogIn className="size-4 mr-2 group-hover:translate-x-1 transition-transform" />
-                                            Sign In to Dashboard
-                                        </>
-                                    )}
-                                </Button>
-
-                                {/* Divider */}
-                                <div className="relative">
-                                    <div className="absolute inset-0 flex items-center">
-                                        <Separator className="w-full" />
-                                    </div>
-                                    <div className="relative flex justify-center text-xs uppercase">
-                                        <span className="bg-white dark:bg-gray-900 px-2 text-gray-500 dark:text-gray-400">
-                                            Or continue with
-                                        </span>
-                                    </div>
-                                </div>
-
-                                {/* Social Login */}
-                                <div className="grid grid-cols-2 gap-3">
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        className="h-11 border-gray-300 dark:border-gray-700 hover:border-cyan-400 hover:bg-cyan-50/50 dark:hover:bg-cyan-950/30"
-                                        onClick={() => handleSocialLogin('google')}
-                                    >
-                                        <Globe className="size-4 mr-2" />
-                                        Google
-                                    </Button>
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        className="h-11 border-gray-300 dark:border-gray-700 hover:border-cyan-400 hover:bg-cyan-50/50 dark:hover:bg-cyan-950/30"
-                                        onClick={() => handleSocialLogin('github')}
-                                    >
-                                        <Smartphone className="size-4 mr-2" />
-                                        GitHub
-                                    </Button>
-                                </div>
-                            </CardContent>
-
-                            <CardFooter className="flex flex-col space-y-4 pt-2">
-                                <div className="text-center text-sm text-gray-600 dark:text-gray-400">
-                                    Don't have an account?{" "}
-                                    <Link
-                                        to="/signup"
-                                        className="font-semibold text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300 underline-offset-4 hover:underline transition-colors"
-                                    >
-                                        Create account
-                                    </Link>
-                                </div>
-
-                                {/* Security Note */}
-                                <div className="text-center">
-                                    <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-cyan-50 dark:bg-cyan-950/30 rounded-full text-xs text-cyan-700 dark:text-cyan-300">
-                                        <Fingerprint className="size-3" />
-                                        <span>Your data is encrypted and secure</span>
-                                    </div>
-                                </div>
-                            </CardFooter>
-                        </form>
-                    </Card>
-
-                    {/* Footer Links */}
-                    <div className="text-center space-y-2">
-                        <div className="flex items-center justify-center gap-4 text-xs text-gray-500 dark:text-gray-400">
-                            <button className="hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors">
-                                Privacy Policy
-                            </button>
-                            <span>•</span>
-                            <button className="hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors">
-                                Terms of Service
-                            </button>
-                            <span>•</span>
-                            <button className="hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors">
-                                Help Center
-                            </button>
-                        </div>
-                        <p className="text-xs text-gray-400 dark:text-gray-500">
-                            © 2024 Education Platform. All rights reserved.
-                        </p>
-                    </div>
+                {/* Email Field */}
+                <div className="space-y-2">
+                  <Label htmlFor="email" className="text-slate-700 dark:text-slate-300">
+                    Email Address
+                  </Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
+                    <Input
+                      id="email"
+                      name="email"
+                      type="email"
+                      placeholder="name@habesha.com"
+                      className={`pl-10 h-12 bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 ${
+                        errors.email ? 'border-red-400 focus:border-red-500 focus:ring-red-500/20' : ''
+                      }`}
+                      value={formData.email}
+                      onChange={handleChange}
+                      autoComplete="email"
+                    />
+                  </div>
+                  {errors.email && (
+                    <p className="text-xs text-red-500 flex items-center gap-1">
+                      <AlertCircle className="size-3" /> {errors.email}
+                    </p>
+                  )}
                 </div>
-            </div>
 
-            {/* Floating Elements */}
-            <div className="fixed top-10 left-10 hidden lg:block">
-                <div className="flex items-center gap-2 text-cyan-700 dark:text-cyan-300">
-                    <Sparkles className="size-5 animate-pulse" />
-                    <span className="text-sm font-medium">Secure Login</span>
+                {/* Password Field */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="password" className="text-slate-700 dark:text-slate-300">
+                      Password
+                    </Label>
+                    <button
+                      type="button"
+                      className="text-xs text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300"
+                    >
+                      Forgot password?
+                    </button>
+                  </div>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
+                    <Input
+                      id="password"
+                      name="password"
+                      type={showPassword ? 'text' : 'password'}
+                      placeholder="Enter your password"
+                      className={`pl-10 pr-10 h-12 bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 ${
+                        errors.password ? 'border-red-400 focus:border-red-500 focus:ring-red-500/20' : ''
+                      }`}
+                      value={formData.password}
+                      onChange={handleChange}
+                      autoComplete="current-password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                    >
+                      {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                    </button>
+                  </div>
+                  {errors.password && (
+                    <p className="text-xs text-red-500 flex items-center gap-1">
+                      <AlertCircle className="size-3" /> {errors.password}
+                    </p>
+                  )}
                 </div>
-            </div>
-            <div className="fixed bottom-10 right-10 hidden lg:block">
-                <div className="flex items-center gap-2 text-cyan-700 dark:text-cyan-300">
-                    <KeyRound className="size-5 animate-pulse" />
-                    <span className="text-sm font-medium">Encrypted Connection</span>
+
+                {/* Login Button */}
+                <Button
+                  type="submit"
+                  className="w-full h-12 bg-cyan-600 hover:bg-cyan-700 text-white font-medium shadow-lg shadow-cyan-600/25"
+                  disabled={isLoggingIn}
+                >
+                  {isLoggingIn ? (
+                    <>
+                      <Loader2 className="size-4 animate-spin mr-2" />
+                      Signing in...
+                    </>
+                  ) : (
+                    <>
+                      <LogIn className="size-4 mr-2" />
+                      Sign In
+                    </>
+                  )}
+                </Button>
+              </CardContent>
+            </form>
+
+            {/* Demo Login Section */}
+            <CardFooter className="flex-col pt-0">
+              <div className="w-full pt-4 border-t border-slate-200 dark:border-slate-700">
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="flex-1 h-px bg-slate-200 dark:bg-slate-700" />
+                  <span className="text-xs text-slate-500 dark:text-slate-400 font-medium px-2">
+                    Demo Access
+                  </span>
+                  <div className="flex-1 h-px bg-slate-200 dark:bg-slate-700" />
                 </div>
-            </div>
+
+                <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-3 mb-4">
+                  <p className="text-xs text-amber-700 dark:text-amber-300 text-center">
+                    Test accounts for demonstration purposes only
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 gap-2">
+                  {DEMO_ACCOUNTS.map((acc) => (
+                    <Button
+                      key={acc.role}
+                      type="button"
+                      variant="outline"
+                      disabled={isLoggingIn}
+                      onClick={() => handleDemoLogin(acc.email)}
+                      className={`h-11 justify-between border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800 ${acc.color}`}
+                    >
+                      <span className="flex items-center gap-2">
+                        <Shield className="size-4" />
+                        <span className="font-semibold">{acc.role}</span>
+                      </span>
+                      <span className="text-xs opacity-80">{acc.hint}</span>
+                    </Button>
+                  ))}
+                </div>
+
+                <p className="text-[11px] text-center text-slate-400 dark:text-slate-500 mt-3">
+                  All demo accounts use password: <code className="bg-slate-100 dark:bg-slate-800 px-1 rounded">{DEMO_PASSWORD}</code>
+                </p>
+              </div>
+
+              {/* Security Note */}
+              <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700 w-full">
+                <div className="flex items-center justify-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                  <Shield className="size-3.5" />
+                  <span>Secured with SSL encryption</span>
+                </div>
+              </div>
+            </CardFooter>
+          </Card>
+
+          {/* Footer */}
+          <p className="text-center text-xs text-slate-400 dark:text-slate-500 mt-6">
+            © {new Date().getFullYear()} Tasty Station. All rights reserved.
+          </p>
         </div>
-    );
+      </div>
+    </div>
+  );
 };
 
 export default Login;

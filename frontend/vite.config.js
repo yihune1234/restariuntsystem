@@ -38,6 +38,20 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
         // Increase maximum file size for caching (default is 2MB, JS bundles can be large)
         maximumFileSizeToCacheInBytes: 5000000,
+        // SPA navigation: serve index.html for all navigation requests
+        navigateFallback: '/index.html',
+        navigateFallbackDenylist: [/^\/api/, /^\/public/, /^\/auth/],
+        runtimeCaching: [
+          {
+            // Cache GET API responses that don't change often
+            urlPattern: ({ url }) => url.pathname.startsWith('/api/v1/branches'),
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'api-branches',
+              expiration: { maxEntries: 10, maxAgeSeconds: 3600 },
+            },
+          },
+        ],
       }
     })
   ],
@@ -46,9 +60,23 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  server: {
+    host: true,
+    port: 5173,
+  },
   test: {
     globals: true,
     environment: 'jsdom',
+    // Restrict test discovery to the frontend test directory only.
+    // Use the vitest `projects`-style include glob; the parent monorepo
+    // contains backend jest tests which must not be picked up.
+    include: ['./src/**/*.{test,spec}.?(js|mjs|cjs|jsx|ts|mts|cts|tsx)'],
+    exclude: [
+      '**/node_modules/**',
+      '**/dist/**',
+      '../Cafeteria-Management-System-Backend/**',
+      './node_modules/**',
+    ],
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
