@@ -8,6 +8,7 @@
   },
   "scripts": {
     "start": "npm --prefix Cafeteria-Management-System-Backend start",
+    "postinstall": "npm --prefix Cafeteria-Management-System-Backend install",
     "test": "npm --prefix frontend run test && npm --prefix Cafeteria-Management-System-Backend run test:unit",
     "build": "npm --prefix frontend run build",
     "install:backend": "npm --prefix Cafeteria-Management-System-Backend install",
@@ -18,16 +19,16 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/hey-Zayn/POS.git"
+    "url": "https://github.com/yihune1234/restariuntsystem"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "bugs": {
-    "url": "https://github.com/hey-Zayn/POS/issues"
+    "url": "https://github.com/yihune1234/restariuntsystem/issues"
   },
-  "homepage": "https://github.com/hey-Zayn/POS#readme",
+  "homepage": "https://github.com/yihune1234/restariuntsystem#readme",
   "devDependencies": {
     "@commitlint/cli": "^20.5.0",
     "@commitlint/config-conventional": "^20.5.0",
