@@ -21,7 +21,7 @@ dist/
 build/
 
 # Runtime uploads (user-uploaded food images, etc.) — do not commit
-uploads/
+/uploads/
 
 # OS / editor
 .DS_Store

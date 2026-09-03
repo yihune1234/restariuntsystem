@@ -30,9 +30,9 @@ build/
 coverage/
 **/coverage/
 
-# --- Backend runtime uploads (user images) ---
-uploads/
-**/uploads/
+# --- Backend runtime uploads (user images) — anchored to repo root so the
+# --- SOURCE module src/modules/uploads/ is NOT excluded ---
+/uploads/
 
 # --- Logs ---
 logs/
