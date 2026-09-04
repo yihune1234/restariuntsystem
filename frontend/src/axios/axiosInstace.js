@@ -1,10 +1,6 @@
 import axios from "axios";
 
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL ||
-  (import.meta.env.MODE === "development"
-    ? "http://localhost:5000/api/v1"
-    : "https://tastystation-bg.vercel.app/api/v1");
+const API_BASE_URL =import.meta.env.VITE_API_BASE_URL
 
 const STORAGE_KEYS = {
   accessToken: "ts_access_token",
