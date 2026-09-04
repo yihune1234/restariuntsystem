@@ -32,11 +32,8 @@ app.use(
     origin: (origin, callback) => {
       // Allow requests with no origin (e.g. mobile apps, curl, Postman)
       if (!origin) return callback(null, true);
-      if (
-        config.socketCorsOrigin.indexOf(origin) !== -1 ||
-        config.clientUrl === origin ||
-        !config.isProduction
-      ) {
+      const allowed = config.socketCorsOrigin;
+      if (allowed.includes('*') || allowed.indexOf(origin) !== -1 || config.clientUrl === origin || !config.isProduction) {
         return callback(null, true);
       }
       return callback(new Error('Not allowed by CORS policy'));
