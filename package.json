@@ -15,6 +15,7 @@
     "seed": "npm --prefix Cafeteria-Management-System-Backend run seed",
     "dev:frontend": "npm --prefix frontend run dev",
     "dev:backend": "npm --prefix Cafeteria-Management-System-Backend run dev",
+    "dev": "vite",
     "prepare": "husky"
   },
   "repository": {
@@ -33,6 +34,7 @@
     "@commitlint/cli": "^20.5.0",
     "@commitlint/config-conventional": "^20.5.0",
     "husky": "^9.1.7",
-    "lint-staged": "^16.4.0"
+    "lint-staged": "^16.4.0",
+    "vite": "^7.0.0"
   }
 }

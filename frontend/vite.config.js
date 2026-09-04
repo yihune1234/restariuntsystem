@@ -64,6 +64,29 @@ export default defineConfig({
     host: true,
     port: 5173,
   },
+  build: {
+    // Route-level code splitting (React.lazy in App.jsx) keeps the entry chunk
+    // small; these groups split vendor libraries into cacheable chunks so a
+    // one-line app change doesn't invalidate the whole vendor cache.
+    // `advancedChunks` is rolldown's native replacement for the deprecated
+    // `manualChunks` (this project uses rolldown-vite).
+    chunkSizeWarningLimit: 900,
+    rollupOptions: {
+      output: {
+        advancedChunks: {
+          groups: [
+            // React core — tiny, changes rarely, needed by every page.
+            { name: 'react-core', test: /node_modules[\\/](react|react-dom|react-router|react-router-dom|scheduler)[\\/]/ },
+            // Charts — the heaviest dependency, only used by manager/owner
+            // reports & sales pages; isolated so it loads on demand.
+            { name: 'charts', test: /node_modules[\\/](recharts|d3-|victory-|reselect)[\\/-]/ },
+            // Remaining third-party libraries.
+            { name: 'vendor', test: /node_modules[\\/]/ },
+          ],
+        },
+      },
+    },
+  },
   test: {
     globals: true,
     environment: 'jsdom',

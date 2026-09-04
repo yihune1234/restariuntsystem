@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { getSocket } from "@/config/socket.config";
 import { SecurityCode } from "../shared/StatusBadge";
 import {
   Flame, Timer, CheckCircle2, Package, ChevronRight, Loader2,
@@ -51,7 +52,7 @@ const getTimeLabel = (minutes) => {
 const KitchenBoard = () => {
   const { kitchenOrders, fetchKitchenOrders, startPreparation, markReady, subscribeKitchenEvents, isLoading } = useKitchenStore();
   const [updating, setUpdating] = useState(null);
-  const [connected, setConnected] = useState(false);
+  const [connected, setConnected] = useState(() => Boolean(getSocket()?.connected));
   const [stationFilter, setStationFilter] = useState("all");
   const [refreshing, setRefreshing] = useState(false);
 
@@ -68,19 +69,20 @@ const KitchenBoard = () => {
   }, [load, subscribeKitchenEvents]);
 
   useEffect(() => {
-    import("@/config/socket.config").then(({ getSocket }) => {
-      const s = getSocket();
-      if (!s) return;
-      const onConn = () => setConnected(true);
-      const onDisc = () => setConnected(false);
-      s.on("connect", onConn);
-      s.on("disconnect", onDisc);
-      setConnected(s.connected);
-      return () => {
-        s.off("connect", onConn);
-        s.off("disconnect", onDisc);
-      };
-    });
+    // socket.config is part of the initial bundle (statically imported by the
+    // stores and App), so we import it statically here too — a dynamic import
+    // would just trigger a Vite "mixed static/dynamic import" warning without
+    // moving the module into another chunk.
+    const s = getSocket();
+    if (!s) return;
+    const onConn = () => setConnected(true);
+    const onDisc = () => setConnected(false);
+    s.on("connect", onConn);
+    s.on("disconnect", onDisc);
+    return () => {
+      s.off("connect", onConn);
+      s.off("disconnect", onDisc);
+    };
   }, []);
 
   const updateStatus = async (orderId, status) => {

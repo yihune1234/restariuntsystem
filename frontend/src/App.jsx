@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { Suspense, lazy } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from './store/useAuthStore'
 import { useThemeStore } from './store/useThemeStore'
@@ -8,40 +8,89 @@ import { connectSocket, disconnectSocket } from './config/socket.config'
 import RoleRoute from './routes/ProtectedRoute'
 import { Loader } from 'lucide-react'
 
-// Auth
+// Auth (kept static: tiny, needed for the first paint of /login)
 import Login from './pages/Auth/Login'
 
-// Role layouts
+// Role layouts — thin shells that wrap the lazy pages below, kept static so
+// the guarded route tree is immediately resolvable.
 import WaiterLayout from './pages/waiter/WaiterLayout'
 import CashierLayout from './pages/cashier/CashierLayout'
 import KitchenLayout from './pages/kitchen/KitchenLayout'
 import ManagerLayout from './pages/manager/ManagerLayout'
 import OwnerLayout from './pages/owner/OwnerLayout'
 
-// Customer (public, no account)
-import CustomerHome from './pages/customer/Home'
-import CustomerMenu from './pages/customer/Menu'
-import CustomerItem from './pages/customer/ItemDetail'
-import CustomerCart from './pages/customer/Cart'
-import CustomerCheckout from './pages/customer/Checkout'
-import CustomerConfirmed from './pages/customer/Confirmed'
-import CustomerTrack from './pages/customer/Track'
-import CustomerHistory from './pages/customer/History'
-import CustomerQrLanding from './pages/customer/QrLanding'
-import CustomerFeedback from './pages/customer/CustomerFeedback'
+// ---------------------------------------------------------------------------
+// Route-level code splitting.
+// Every page below is lazy-loaded, so it lands in its own chunk fetched on
+// navigation. Cashier/kitchen/waiter screens never download the heavy manager
+// & owner dashboards (recharts etc.) up front, and vice versa.
 
-// Waiter pages
-import { WaiterDashboard, WaiterTables, WaiterCreateOrder, WaiterActiveOrders, WaiterOrderStatus, WaiterProfile } from './pages/waiter/WaiterPages'
+// Customer (public, no account)
+const CustomerHome = lazy(() => import('./pages/customer/Home'))
+const CustomerMenu = lazy(() => import('./pages/customer/Menu'))
+const CustomerItem = lazy(() => import('./pages/customer/ItemDetail'))
+const CustomerCart = lazy(() => import('./pages/customer/Cart'))
+const CustomerCheckout = lazy(() => import('./pages/customer/Checkout'))
+const CustomerConfirmed = lazy(() => import('./pages/customer/Confirmed'))
+const CustomerTrack = lazy(() => import('./pages/customer/Track'))
+const CustomerHistory = lazy(() => import('./pages/customer/History'))
+const CustomerQrLanding = lazy(() => import('./pages/customer/QrLanding'))
+const CustomerFeedback = lazy(() => import('./pages/customer/CustomerFeedback'))
+
+// Waiter pages (barrel module — map named exports to `default`)
+const WaiterDashboard = lazy(() => import('./pages/waiter/WaiterPages').then(m => ({ default: m.WaiterDashboard })))
+const WaiterTables = lazy(() => import('./pages/waiter/WaiterPages').then(m => ({ default: m.WaiterTables })))
+const WaiterCreateOrder = lazy(() => import('./pages/waiter/WaiterPages').then(m => ({ default: m.WaiterCreateOrder })))
+const WaiterActiveOrders = lazy(() => import('./pages/waiter/WaiterPages').then(m => ({ default: m.WaiterActiveOrders })))
+const WaiterOrderStatus = lazy(() => import('./pages/waiter/WaiterPages').then(m => ({ default: m.WaiterOrderStatus })))
+const WaiterProfile = lazy(() => import('./pages/waiter/WaiterPages').then(m => ({ default: m.WaiterProfile })))
 // Cashier pages
-import { CashierDashboard, CashierCreateOrder, CashierProfile, CashierTransactions } from './pages/cashier/CashierPages'
-import CashierManualEntry from './pages/cashier/CashierManualEntry'
-import RefundManagement from './pages/shared/RefundManagement'
-import TableCapacityOverview from './pages/shared/TableCapacityOverview'
-import { CashierPayments } from './pages/cashier/CashierPayments'
+const CashierDashboard = lazy(() => import('./pages/cashier/CashierPages').then(m => ({ default: m.CashierDashboard })))
+const CashierCreateOrder = lazy(() => import('./pages/cashier/CashierPages').then(m => ({ default: m.CashierCreateOrder })))
+const CashierProfile = lazy(() => import('./pages/cashier/CashierPages').then(m => ({ default: m.CashierProfile })))
+const CashierTransactions = lazy(() => import('./pages/cashier/CashierPages').then(m => ({ default: m.CashierTransactions })))
+const CashierPayments = lazy(() => import('./pages/cashier/CashierPayments').then(m => ({ default: m.CashierPayments })))
+const CashierManualEntry = lazy(() => import('./pages/cashier/CashierManualEntry'))
+// Shared pages
+const RefundManagement = lazy(() => import('./pages/shared/RefundManagement'))
+const TableCapacityOverview = lazy(() => import('./pages/shared/TableCapacityOverview'))
 // Kitchen + Manager + Owner pages
-import { KitchenDashboard, KitchenProfile } from './pages/kitchen/KitchenPages'
-import { ManagerDashboard, ManagerOrders, ManagerKitchen, ManagerTables, ManagerPayments, ManagerTransactions, ManagerCustomers, ManagerMenu, ManagerStaff, ManagerProfile, ManagerReports, ManagerBranchSettings, ManagerInventoryPage, ManagerDaily, ManagerWaste, ManagerOffline, ManagerWaiterAssignment } from './pages/manager/ManagerPages'
-import { OwnerDashboard, OwnerOrders, OwnerMenu, OwnerPayments, OwnerSales, OwnerReports, OwnerManagers, OwnerUsers, OwnerProfile, OwnerPermissions, OwnerSettingsPage, OwnerTables, OwnerOperations, OwnerFeedback, OwnerCrossBranch, OwnerInventoryPage, OwnerWaiterAssignment } from './pages/owner/OwnerPages'
+const KitchenDashboard = lazy(() => import('./pages/kitchen/KitchenPages').then(m => ({ default: m.KitchenDashboard })))
+const KitchenProfile = lazy(() => import('./pages/kitchen/KitchenPages').then(m => ({ default: m.KitchenProfile })))
+const ManagerDashboard = lazy(() => import('./pages/manager/ManagerPages').then(m => ({ default: m.ManagerDashboard })))
+const ManagerOrders = lazy(() => import('./pages/manager/ManagerPages').then(m => ({ default: m.ManagerOrders })))
+const ManagerKitchen = lazy(() => import('./pages/manager/ManagerPages').then(m => ({ default: m.ManagerKitchen })))
+const ManagerTables = lazy(() => import('./pages/manager/ManagerPages').then(m => ({ default: m.ManagerTables })))
+const ManagerPayments = lazy(() => import('./pages/manager/ManagerPages').then(m => ({ default: m.ManagerPayments })))
+const ManagerTransactions = lazy(() => import('./pages/manager/ManagerPages').then(m => ({ default: m.ManagerTransactions })))
+const ManagerCustomers = lazy(() => import('./pages/manager/ManagerPages').then(m => ({ default: m.ManagerCustomers })))
+const ManagerMenu = lazy(() => import('./pages/manager/ManagerPages').then(m => ({ default: m.ManagerMenu })))
+const ManagerStaff = lazy(() => import('./pages/manager/ManagerPages').then(m => ({ default: m.ManagerStaff })))
+const ManagerProfile = lazy(() => import('./pages/manager/ManagerPages').then(m => ({ default: m.ManagerProfile })))
+const ManagerReports = lazy(() => import('./pages/manager/ManagerPages').then(m => ({ default: m.ManagerReports })))
+const ManagerBranchSettings = lazy(() => import('./pages/manager/ManagerPages').then(m => ({ default: m.ManagerBranchSettings })))
+const ManagerInventoryPage = lazy(() => import('./pages/manager/ManagerPages').then(m => ({ default: m.ManagerInventoryPage })))
+const ManagerDaily = lazy(() => import('./pages/manager/ManagerPages').then(m => ({ default: m.ManagerDaily })))
+const ManagerWaste = lazy(() => import('./pages/manager/ManagerPages').then(m => ({ default: m.ManagerWaste })))
+const ManagerOffline = lazy(() => import('./pages/manager/ManagerPages').then(m => ({ default: m.ManagerOffline })))
+const ManagerWaiterAssignment = lazy(() => import('./pages/manager/ManagerPages').then(m => ({ default: m.ManagerWaiterAssignment })))
+const OwnerDashboard = lazy(() => import('./pages/owner/OwnerPages').then(m => ({ default: m.OwnerDashboard })))
+const OwnerOrders = lazy(() => import('./pages/owner/OwnerPages').then(m => ({ default: m.OwnerOrders })))
+const OwnerMenu = lazy(() => import('./pages/owner/OwnerPages').then(m => ({ default: m.OwnerMenu })))
+const OwnerPayments = lazy(() => import('./pages/owner/OwnerPages').then(m => ({ default: m.OwnerPayments })))
+const OwnerSales = lazy(() => import('./pages/owner/OwnerPages').then(m => ({ default: m.OwnerSales })))
+const OwnerReports = lazy(() => import('./pages/owner/OwnerPages').then(m => ({ default: m.OwnerReports })))
+const OwnerManagers = lazy(() => import('./pages/owner/OwnerPages').then(m => ({ default: m.OwnerManagers })))
+const OwnerUsers = lazy(() => import('./pages/owner/OwnerPages').then(m => ({ default: m.OwnerUsers })))
+const OwnerProfile = lazy(() => import('./pages/owner/OwnerPages').then(m => ({ default: m.OwnerProfile })))
+const OwnerPermissions = lazy(() => import('./pages/owner/OwnerPages').then(m => ({ default: m.OwnerPermissions })))
+const OwnerSettingsPage = lazy(() => import('./pages/owner/OwnerPages').then(m => ({ default: m.OwnerSettingsPage })))
+const OwnerTables = lazy(() => import('./pages/owner/OwnerPages').then(m => ({ default: m.OwnerTables })))
+const OwnerOperations = lazy(() => import('./pages/owner/OwnerPages').then(m => ({ default: m.OwnerOperations })))
+const OwnerFeedback = lazy(() => import('./pages/owner/OwnerPages').then(m => ({ default: m.OwnerFeedback })))
+const OwnerCrossBranch = lazy(() => import('./pages/owner/OwnerPages').then(m => ({ default: m.OwnerCrossBranch })))
+const OwnerInventoryPage = lazy(() => import('./pages/owner/OwnerPages').then(m => ({ default: m.OwnerInventoryPage })))
+const OwnerWaiterAssignment = lazy(() => import('./pages/owner/OwnerPages').then(m => ({ default: m.OwnerWaiterAssignment })))
 
 import { Toaster } from 'sonner'
 
@@ -88,6 +137,15 @@ const App = () => {
 
   return (
     <>
+      {/* Lazy route chunks resolve inside this boundary; the fallback mirrors
+          the auth-check splash so navigation between roles never flashes. */}
+      <Suspense
+        fallback={
+          <div className="w-full h-screen flex justify-center items-center">
+            <Loader className="animate-spin size-20 text-cyan-500" />
+          </div>
+        }
+      >
       <Routes>
 
         {/* Customer - PUBLIC, no account */}
@@ -208,6 +266,7 @@ const App = () => {
 
         <Route path="*" element={<Navigate to={authUser ? roleHome(authUser.role) : "/customer"} replace />} />
       </Routes>
+      </Suspense>
       <Toaster position="top-right" richColors expand={false} />
     </>
   )
