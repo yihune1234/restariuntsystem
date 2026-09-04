@@ -15,7 +15,8 @@
     "seed": "npm --prefix Cafeteria-Management-System-Backend run seed",
     "dev:frontend": "npm --prefix frontend run dev",
     "dev:backend": "npm --prefix Cafeteria-Management-System-Backend run dev",
-    "dev": "vite",
+    "dev": "npm --prefix frontend run dev",
+    "preview": "npm --prefix frontend run preview",
     "prepare": "husky"
   },
   "repository": {
