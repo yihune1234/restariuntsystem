@@ -17,7 +17,7 @@ const startServer = async () => {
   try {
     await connectDB();
 
-    server.listen(config.port, () => {
+    server.listen(config.port, '0.0.0.0', () => {
       logger.info(`=======================================================`);
       logger.info(`🚀 Paperless Restaurant Backend Server running on port ${config.port}`);
       logger.info(`🌟 Environment: ${config.env}`);
