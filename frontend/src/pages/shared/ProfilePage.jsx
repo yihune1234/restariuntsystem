@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Separator } from "@/components/ui/separator";
 import { UserRound, Lock, Shield, Mail, Phone, Building2, Calendar, Activity, AlertCircle, Check, Eye, EyeOff } from "lucide-react";
+import { DEFAULT_RESTAURANT } from "@/config/restaurant";
 import { toast } from "sonner";
 
 const profileSchema = z.object({
@@ -224,7 +225,7 @@ const ProfilePage = () => {
                   <Building2 className="size-4 text-muted-foreground" />
                   <div>
                     <p className="text-muted-foreground">Organization</p>
-                    <p className="font-medium truncate">{authUser?.organizationId?.name || "Tasty Station"}</p>
+                    <p className="font-medium truncate">{authUser?.organizationId?.name || DEFAULT_RESTAURANT.nameEn}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/30">

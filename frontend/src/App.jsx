@@ -20,6 +20,7 @@ const CustomerCart = lazy(() => import('./pages/customer/Cart'))
 const CustomerCheckout = lazy(() => import('./pages/customer/Checkout'))
 const CustomerConfirmed = lazy(() => import('./pages/customer/Confirmed'))
 const CustomerTrack = lazy(() => import('./pages/customer/Track'))
+const CustomerQrLanding = lazy(() => import('./pages/customer/QrLanding'))
 
 const CashierDashboard = lazy(() => import('./pages/cashier/CashierPages').then(m => ({ default: m.CashierDashboard })))
 const CashierCreateOrder = lazy(() => import('./pages/cashier/CashierPages').then(m => ({ default: m.CashierCreateOrder })))
@@ -107,6 +108,8 @@ const App = () => {
         <Route path="/customer/track" element={<CustomerTrack />} />
         <Route path="/customer/track/:orderId" element={<CustomerTrack />} />
         <Route path="/customer/track/code/:code" element={<CustomerTrack />} />
+        <Route path="/customer/qr/:branch?" element={<CustomerQrLanding />} />
+        <Route path="/customer/qr/:branch?/*" element={<CustomerQrLanding />} />
 
         <Route path="/login" element={!authUser ? <Login /> : <Navigate to={roleHome(authUser.role)} replace />} />
         <Route path="/" element={<Navigate to={authUser ? roleHome(authUser.role) : "/customer"} replace />} />

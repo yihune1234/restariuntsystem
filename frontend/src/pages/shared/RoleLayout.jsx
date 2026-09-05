@@ -9,6 +9,7 @@ import {
   ownerNav,
 } from "./roleConfig";
 import { UtensilsCrossed } from "lucide-react";
+import { DEFAULT_RESTAURANT } from "@/config/restaurant";
 
 const ROLE_NAV = {
   cashier: cashierNav,
@@ -63,7 +64,7 @@ const RoleLayout = ({ role }) => {
           <div className="size-8 rounded-lg bg-primary flex items-center justify-center">
             <UtensilsCrossed className="size-4 text-primary-foreground" />
           </div>
-          <span className="font-bold text-sm">Tasty Station</span>
+          <span className="font-bold text-sm">{DEFAULT_RESTAURANT.logoText}</span>
         </div>
       </div>
 

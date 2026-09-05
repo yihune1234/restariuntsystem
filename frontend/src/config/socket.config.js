@@ -19,7 +19,7 @@ const SOCKET_URL =
   import.meta.env.VITE_API_BASE_URL ||
   (import.meta.env.MODE === "development"
     ? "http://localhost:5000"
-    : "https://tastystation-bg.vercel.app");
+    : "https://restariuntsystem-2.onrender.com");
 
 const STORAGE_KEYS = {
   accessToken: "ts_access_token",

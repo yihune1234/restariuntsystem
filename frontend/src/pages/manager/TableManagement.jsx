@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { QrCode, Printer, RefreshCw, Plus, Trash2, Edit2, Check, Download } from "lucide-react";
+import { buildCustomerQrUrl } from "@/lib/qrUrl";
 
 const QRPrintCard = ({ qrUrl, title, subtitle }) => {
   const printRef = useRef(null);
@@ -229,9 +230,8 @@ const TableManagement = () => {
     const res = await regenerateQr(tableId);
     setQrLoading(false);
     if (res.success) {
-      const token = res.data.qrToken;
-      const baseUrl = window.location.origin.replace(/\/+$/, "");
-      setQrUrl(`https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=${encodeURIComponent(baseUrl + "/customer/qr?token=" + token)}`);
+      const url = buildCustomerQrUrl(res.data.qrToken);
+      setQrUrl(`https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=${encodeURIComponent(url)}`);
       setSelectedTableForQr(tables.find(t => t._id === tableId));
       toast.success("QR code generated");
     }

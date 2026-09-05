@@ -2,6 +2,7 @@ const { BadRequestError } = require('../../utils/errors');
 
 const ALLOWED_TRANSITIONS = {
   PENDING: ['PREPARING', 'CANCELLED'],
+  WAITING_FOR_PAYMENT: ['PREPARING', 'CANCELLED'],
   PREPARING: ['READY', 'CANCELLED'],
   READY: ['COMPLETED', 'CANCELLED'],
   COMPLETED: [],

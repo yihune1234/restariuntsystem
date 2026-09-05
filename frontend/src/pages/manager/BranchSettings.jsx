@@ -104,7 +104,7 @@ const BranchSettings = () => {
     if (res.success) {
       // Encoded from the CURRENT origin so printed QR codes stay reachable
       // across dev / LAN-IP changes / production (see lib/qrUrl.js).
-      const url = buildCustomerQrUrl(branchId, res.data.qrToken);
+      const url = buildCustomerQrUrl(res.data.qrToken);
       setQrUrl(url);
       toast.success("QR token rotated. Print and place it on the table.");
     } else {
