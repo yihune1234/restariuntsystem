@@ -7,15 +7,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { OrderStatusBadge } from "./StatusBadge";
-import {
-  ShoppingCart, Clock, ChefHat, CheckCircle2, Truck,
-  RefreshCw, AlertCircle, Users, ArrowRight,
-} from "lucide-react";
+import { ShoppingCart, Truck, Clock, Users, RefreshCw } from "lucide-react";
 
 const TABLE_STATUS_META = {
-  AVAILABLE: { label: "Available", color: "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300", icon: CheckCircle2 },
-  OCCUPIED: { label: "Occupied", color: "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300", icon: Users },
-  RESERVED: { label: "Reserved", color: "bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300", icon: Clock },
+  AVAILABLE: { label: "Available", color: "bg-green-100 text-green-800" },
+  OCCUPIED: { label: "Occupied", color: "bg-blue-100 text-blue-800" },
+  RESERVED: { label: "Reserved", color: "bg-purple-100 text-purple-800" },
 };
 
 const WaiterDashboard = () => {
@@ -43,124 +40,76 @@ const WaiterDashboard = () => {
     return cleanupSocketListeners;
   }, [loadData, setupSocketListeners, cleanupSocketListeners]);
 
-  // W1: Table has no assignedWaiterId in the backend model — see WaiterTables.
-  // "My Tables" = every table in the branch; workload shows via active orders.
   const myTables = tables;
   const occupiedTables = myTables.filter(t => t.status === "OCCUPIED");
-
   const readyOrders = orders.filter(o => o.orderStatus === "READY");
   const preparingOrders = orders.filter(o => o.orderStatus === "PREPARING");
   const newOrders = orders.filter(o => o.orderStatus === "WAITING_FOR_PAYMENT" || o.orderStatus === "CONFIRMED");
-  const takenOrders = orders.filter(o => o.orderStatus === "TAKEN_BY_WAITER");
-  const servedOrders = orders.filter(o => o.orderStatus === "DELIVERED" || o.orderStatus === "COMPLETED");
-
-  const stats = [
-    {
-      label: "My Active Tables",
-      value: myTables.length,
-      icon: Users,
-      color: "from-blue-500 to-blue-600",
-      bgColor: "bg-blue-50 dark:bg-blue-900/20",
-      textColor: "text-blue-600 dark:text-blue-400",
-      sub: `${occupiedTables.length} occupied`,
-    },
-    {
-      label: "New Orders",
-      value: newOrders.length,
-      icon: ShoppingCart,
-      color: "from-purple-500 to-purple-600",
-      bgColor: "bg-purple-50 dark:bg-purple-900/20",
-      textColor: "text-purple-600 dark:text-purple-400",
-      sub: "waiting confirmation",
-    },
-    {
-      label: "Ready to Serve",
-      value: readyOrders.length,
-      icon: Truck,
-      color: "from-green-500 to-emerald-600",
-      bgColor: "bg-green-50 dark:bg-green-900/20",
-      textColor: "text-green-600 dark:text-green-400",
-      sub: "pick up & deliver",
-      urgent: readyOrders.length > 0,
-    },
-    {
-      label: "Payment Requests",
-      value: orders.filter(o => o.paymentStatus === "PENDING").length,
-      icon: Clock,
-      color: "from-amber-500 to-amber-600",
-      bgColor: "bg-amber-50 dark:bg-amber-900/20",
-      textColor: "text-amber-600 dark:text-amber-400",
-      sub: "bills to collect",
-      urgent: orders.filter(o => o.paymentStatus === "PENDING").length > 0,
-    },
-  ];
+  const pendingPayments = orders.filter(o => o.paymentStatus === "PENDING");
 
   return (
     <div className="p-4 lg:p-6 space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Waiter Dashboard</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400">Welcome, {authUser?.name}</p>
+          <h1 className="text-2xl font-bold">Welcome, {authUser?.name}</h1>
+          <p className="text-sm text-muted-foreground">Waiter Dashboard</p>
         </div>
         <Button variant="outline" size="sm" onClick={loadData} disabled={loading}>
           <RefreshCw className={`size-4 mr-1 ${loading ? "animate-spin" : ""}`} /> Refresh
         </Button>
       </div>
 
-      {/* Quick Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {loading && orders.length === 0 ? (
-          [...Array(4)].map((_, i) => <Skeleton key={i} className="h-24 w-full" />)
-        ) : (
-          stats.map((s) => (
-            <Card key={s.label} className={`overflow-hidden ${s.urgent ? "ring-2 ring-green-500 ring-opacity-50" : ""}`}>
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between">
-                  <div className={`size-10 rounded-xl ${s.bgColor} flex items-center justify-center`}>
-                    <s.icon className={`size-5 ${s.textColor}`} />
-                  </div>
-                  {s.urgent && (
-                    <span className="size-2 rounded-full bg-green-500 animate-pulse" />
-                  )}
-                </div>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-3">{s.label}</p>
-                <p className="text-2xl font-black text-gray-900 dark:text-white mt-1">{s.value}</p>
-                {s.sub && <p className="text-[10px] text-gray-400 mt-1">{s.sub}</p>}
-              </CardContent>
-            </Card>
-          ))
-        )}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card className="bg-blue-50 border-blue-200">
+          <CardContent className="p-4 text-center">
+            <Users className="size-6 mx-auto mb-2 text-blue-600" />
+            <p className="text-3xl font-bold text-blue-700">{myTables.length}</p>
+            <p className="text-sm text-blue-600">My Tables</p>
+            <p className="text-xs text-blue-500/80 mt-1">{occupiedTables.length} occupied</p>
+          </CardContent>
+        </Card>
+        <Card className="bg-purple-50 border-purple-200">
+          <CardContent className="p-4 text-center">
+            <ShoppingCart className="size-6 mx-auto mb-2 text-purple-600" />
+            <p className="text-3xl font-bold text-purple-700">{newOrders.length}</p>
+            <p className="text-sm text-purple-600">New Orders</p>
+          </CardContent>
+        </Card>
+        <Card className={`${readyOrders.length > 0 ? "bg-green-50 border-green-200" : "bg-muted"}`}>
+          <CardContent className="p-4 text-center">
+            <Truck className="size-6 mx-auto mb-2 text-green-600" />
+            <p className="text-3xl font-bold text-green-700">{readyOrders.length}</p>
+            <p className="text-sm text-green-600">Ready to Serve</p>
+          </CardContent>
+        </Card>
+        <Card className={`${pendingPayments.length > 0 ? "bg-amber-50 border-amber-200" : "bg-muted"}`}>
+          <CardContent className="p-4 text-center">
+            <Clock className="size-6 mx-auto mb-2 text-amber-600" />
+            <p className="text-3xl font-bold text-amber-700">{pendingPayments.length}</p>
+            <p className="text-sm text-amber-600">Pending Payment</p>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Ready to Serve - Prominent Section */}
       {readyOrders.length > 0 && (
         <div>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
-              <Truck className="size-5 text-green-600" /> Ready to Serve
-            </h2>
-            <Badge className="bg-green-500 text-white">{readyOrders.length}</Badge>
-          </div>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <h2 className="text-lg font-bold mb-3 flex items-center gap-2">
+            <Truck className="size-5 text-green-600" /> Ready to Serve
+          </h2>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {readyOrders.slice(0, 6).map((o) => (
-              <Card key={o._id} className="border-2 border-green-200 dark:border-green-800 bg-gradient-to-br from-green-50 to-white dark:from-green-900/20 dark:to-gray-900">
+              <Card key={o._id} className="border-2 border-green-200 bg-green-50/50">
                 <CardContent className="p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-bold text-lg">#{o.orderNumber || o._id?.slice(-4)}</span>
+                  <div className="flex items-start justify-between mb-2">
+                    <span className="font-bold text-lg">#{o.orderNumber?.slice(-6) || o._id?.slice(-6)}</span>
                     <Badge className="bg-green-500 text-white">Ready</Badge>
                   </div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                    {o.tableId ? `Table ${o.tableId.tableNumber}` : "No Table"} • {o.source}
+                  <p className="text-sm text-muted-foreground mb-2">
+                    {o.tableId ? `Table ${o.tableId.tableNumber}` : "No Table"}
                   </p>
-                  <div className="text-xs text-gray-500 mb-3">
-                    {o.items?.slice(0, 2).map((it, i) => (
-                      <p key={i}>{it.foodNameSnapshot} × {it.quantity}</p>
-                    ))}
-                    {o.items?.length > 2 && <p className="text-gray-400">+{o.items.length - 2} more</p>}
-                  </div>
-                  <Button size="sm" className="w-full bg-green-600 hover:bg-green-700">
-                    Mark as Served <ArrowRight className="size-3 ml-1" />
+                  <p className="text-lg font-bold">{(o.total || 0).toLocaleString()} ETB</p>
+                  <Button size="sm" className="w-full mt-3 bg-green-600 hover:bg-green-700">
+                    Mark Served
                   </Button>
                 </CardContent>
               </Card>
@@ -169,45 +118,35 @@ const WaiterDashboard = () => {
         </div>
       )}
 
-      {/* My Tables Overview */}
       <div>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
-            <Users className="size-5 text-blue-600" /> My Tables
-          </h2>
-          <Button variant="ghost" size="sm">View All</Button>
-        </div>
+        <h2 className="text-lg font-bold mb-3">My Tables</h2>
         {tablesLoading ? (
-          <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-3">
-            {[...Array(6)].map((_, i) => <Skeleton key={i} className="h-20 w-full" />)}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+            {[...Array(6)].map((_, i) => <Skeleton key={i} className="h-24" />)}
           </div>
         ) : myTables.length === 0 ? (
           <Card>
             <CardContent className="p-6 text-center">
-              <AlertCircle className="size-8 mx-auto mb-2 text-amber-400" />
-              <p className="text-sm text-gray-500">No tables assigned to you yet.</p>
+              <p className="text-muted-foreground">No tables assigned yet.</p>
             </CardContent>
           </Card>
         ) : (
-          <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
             {myTables.slice(0, 12).map((t) => {
               const tableOrders = orders.filter(o => o.tableId?._id === t._id || o.tableId === t._id);
               const hasActiveOrder = tableOrders.some(o => !["COMPLETED", "CANCELLED"].includes(o.orderStatus));
               const meta = TABLE_STATUS_META[t.status] || TABLE_STATUS_META.AVAILABLE;
-              const Icon = meta.icon;
 
               return (
                 <Card key={t._id} className="cursor-pointer hover:shadow-md transition-all">
-                  <CardContent className="p-3 text-center">
-                    <div className={`size-10 rounded-full ${meta.bgColor} mx-auto mb-2 flex items-center justify-center`}>
-                      <Icon className={`size-5 ${meta.textColor}`} />
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between mb-2">
+                      <p className="font-bold text-lg">T{t.tableNumber}</p>
+                      <Badge variant="outline" className={meta.color}>{meta.label}</Badge>
                     </div>
-                    <p className="font-bold text-gray-900 dark:text-white">Table {t.tableNumber}</p>
-                    <p className="text-[10px] text-gray-500 mt-0.5">{t.capacity} seats</p>
+                    <p className="text-sm text-muted-foreground">{t.capacity} seats</p>
                     {hasActiveOrder && (
-                      <Badge className="mt-2 bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400 text-[10px]">
-                        Active
-                      </Badge>
+                      <Badge className="mt-2 bg-amber-100 text-amber-700">Active</Badge>
                     )}
                   </CardContent>
                 </Card>
@@ -217,16 +156,14 @@ const WaiterDashboard = () => {
         )}
       </div>
 
-      {/* Recent Activity */}
       <div>
-        <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-3">Recent Orders</h2>
+        <h2 className="text-lg font-bold mb-3">Recent Orders</h2>
         {loading && orders.length === 0 ? (
-          [...Array(3)].map((_, i) => <Skeleton key={i} className="h-20 w-full mb-2" />)
+          [...Array(3)].map((_, i) => <Skeleton key={i} className="h-16 mb-2" />)
         ) : orders.length === 0 ? (
           <Card>
             <CardContent className="p-6 text-center">
-              <Clock className="size-8 mx-auto mb-2 text-gray-300" />
-              <p className="text-sm text-gray-500">No recent orders</p>
+              <p className="text-muted-foreground">No recent orders</p>
             </CardContent>
           </Card>
         ) : (
@@ -235,25 +172,17 @@ const WaiterDashboard = () => {
               <Card key={o._id} className="hover:shadow-sm transition-shadow">
                 <CardContent className="p-3 flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="size-10 rounded-lg bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center">
-                      <span className="text-amber-600 dark:text-amber-400 font-bold text-sm">
-                        #{o.orderNumber || o._id?.slice(-4)}
-                      </span>
+                    <div className="size-10 rounded-lg bg-muted flex items-center justify-center">
+                      <span className="font-bold text-sm">#{o.orderNumber?.slice(-6) || o._id?.slice(-6)}</span>
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-900 dark:text-white">
-                        {o.tableId ? `Table ${o.tableId.tableNumber}` : "No Table"}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {o.customerName || "Guest"} • {o.source}
-                      </p>
+                      <p className="font-medium text-sm">{o.tableId ? `Table ${o.tableId.tableNumber}` : "No Table"}</p>
+                      <p className="text-xs text-muted-foreground">{o.customerName || "Guest"}</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-3">
                     <OrderStatusBadge status={o.orderStatus} paymentStatus={o.paymentStatus} />
-                    <span className="text-sm font-bold text-gray-900 dark:text-white">
-                      {(o.total || 0).toLocaleString()} ETB
-                    </span>
+                    <span className="font-bold">{(o.total || 0).toLocaleString()} ETB</span>
                   </div>
                 </CardContent>
               </Card>

@@ -1,7 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import { useTableStore } from "@/store/useTableStore";
 import { useOrderStore } from "@/store/useOrderStore";
-import { useUserStore } from "@/store/useUserStore";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -11,9 +10,6 @@ import {
   Users,
   Clock,
   AlertCircle,
-  Circle,
-  CheckCircle,
-  ChefHat,
   CreditCard,
   LayoutGrid,
   List,
@@ -21,15 +17,15 @@ import {
 import TableDetailsDrawer from "./TableDetailsDrawer";
 
 const TABLE_STATUS_CONFIG = {
-  available: { color: "bg-green-500", label: "Available", textColor: "text-green-600", borderColor: "border-green-200" },
-  occupied: { color: "bg-blue-500", label: "Occupied", textColor: "text-blue-600", borderColor: "border-blue-200" },
-  ordering: { color: "bg-yellow-500", label: "Ordering", textColor: "text-yellow-600", borderColor: "border-yellow-200" },
-  preparing: { color: "bg-orange-500", label: "Preparing", textColor: "text-orange-600", borderColor: "border-orange-200" },
-  ready: { color: "bg-purple-500", label: "Ready", textColor: "text-purple-600", borderColor: "border-purple-200" },
-  served: { color: "bg-indigo-500", label: "Served", textColor: "text-indigo-600", borderColor: "border-indigo-200" },
-  payment_pending: { color: "bg-red-500", label: "Payment Pending", textColor: "text-red-600", borderColor: "border-red-200" },
-  attention: { color: "bg-pink-500", label: "Needs Attention", textColor: "text-pink-600", borderColor: "border-pink-200" },
-  cleaning: { color: "bg-gray-400", label: "Cleaning", textColor: "text-gray-500", borderColor: "border-gray-200" },
+  available: { color: "bg-green-500", label: "Available", textColor: "text-green-600", bgClass: "bg-green-50 border-green-200" },
+  occupied: { color: "bg-blue-500", label: "Occupied", textColor: "text-blue-600", bgClass: "bg-blue-50 border-blue-200" },
+  ordering: { color: "bg-yellow-500", label: "Ordering", textColor: "text-yellow-600", bgClass: "bg-yellow-50 border-yellow-200" },
+  preparing: { color: "bg-orange-500", label: "Preparing", textColor: "text-orange-600", bgClass: "bg-orange-50 border-orange-200" },
+  ready: { color: "bg-purple-500", label: "Ready", textColor: "text-purple-600", bgClass: "bg-purple-50 border-purple-200" },
+  served: { color: "bg-indigo-500", label: "Served", textColor: "text-indigo-600", bgClass: "bg-indigo-50 border-indigo-200" },
+  payment_pending: { color: "bg-red-500", label: "Payment Pending", textColor: "text-red-600", bgClass: "bg-red-50 border-red-200" },
+  attention: { color: "bg-pink-500", label: "Needs Attention", textColor: "text-pink-600", bgClass: "bg-pink-50 border-pink-200" },
+  cleaning: { color: "bg-gray-400", label: "Cleaning", textColor: "text-gray-500", bgClass: "bg-gray-50 border-gray-200" },
 };
 
 const calculateTableStatus = (table, tableOrders) => {
@@ -60,7 +56,7 @@ const calculateTableStatus = (table, tableOrders) => {
   return "available";
 };
 
-const TableCard = ({ table, activeOrders, onClick, isFiltered }) => {
+const TableCard = ({ table, activeOrders, onClick }) => {
   const statusKey = calculateTableStatus(table, activeOrders);
   const statusConfig = TABLE_STATUS_CONFIG[statusKey] || TABLE_STATUS_CONFIG.available;
   const hasUnpaid = activeOrders.some(o => ["UNPAID", "PENDING"].includes(o.paymentStatus));
@@ -75,59 +71,42 @@ const TableCard = ({ table, activeOrders, onClick, isFiltered }) => {
 
   return (
     <Card
-      className={`cursor-pointer hover:shadow-md transition-all ${
-        hasUnpaid ? "border-red-300 bg-red-50/50" :
-        hasDelayed ? "border-orange-300 bg-orange-50/50" :
-        isFiltered ? statusConfig.borderColor : ""
-      } ${statusKey === "ready" ? "border-purple-300 bg-purple-50/50" : ""}`}
+      className={`cursor-pointer hover:shadow-md transition-all border-2 ${statusConfig.bgClass}`}
       onClick={onClick}
     >
-      <CardContent className="p-3">
-        <div className="flex items-center justify-between mb-2">
+      <CardContent className="p-4">
+        <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <span className="font-bold">T{table.tableNumber || table.number}</span>
-            <div className={`size-2 rounded-full ${statusConfig.color}`} />
+            <span className="font-bold text-xl">T{table.tableNumber}</span>
+            <div className={`size-3 rounded-full ${statusConfig.color}`} />
           </div>
-          <Badge
-            variant="outline"
-            className={`${statusConfig.textColor} text-xs border-current`}
-          >
+          <Badge variant="outline" className={`${statusConfig.textColor} border-current font-medium`}>
             {statusConfig.label}
           </Badge>
         </div>
 
-        <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-          <Users className="size-3" />
+        <div className="flex items-center gap-2 text-sm text-muted-foreground mb-3">
+          <Users className="size-4" />
           <span>{table.capacity || 4} seats</span>
-          {table.area && <span>• {table.area}</span>}
         </div>
 
-        {activeOrders.length > 0 && (
-          <div className="space-y-1 pt-2 border-t">
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-muted-foreground">Orders</span>
-              <span className="font-medium">{activeOrders.length}</span>
+        {activeOrders.length > 0 ? (
+          <div className="space-y-2 pt-3 border-t border-gray-200">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">Order #{activeOrders[0]?.orderNumber?.slice(-6) || activeOrders[0]?._id?.slice(-6)}</span>
+              <span className="text-xs font-medium">{preparationTime}m</span>
             </div>
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-muted-foreground">Total</span>
-              <span className="font-bold">{(tableTotal || 0).toLocaleString()} ETB</span>
-            </div>
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-muted-foreground flex items-center gap-1">
-                <Clock className="size-3" /> {preparationTime}m
-              </span>
-              <div className="flex items-center gap-1">
-                {hasDelayed && <AlertCircle className="size-3 text-orange-500" />}
-                {hasUnpaid && <CreditCard className="size-3 text-red-500" />}
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-semibold">{(tableTotal || 0).toLocaleString()} ETB</span>
+              <div className="flex gap-1">
+                {hasDelayed && <AlertCircle className="size-4 text-orange-500" />}
+                {hasUnpaid && <CreditCard className="size-4 text-red-500" />}
               </div>
             </div>
           </div>
-        )}
-
-        {table.qrToken && activeOrders.length === 0 && (
-          <div className="pt-2 mt-2 border-t flex items-center gap-1 text-xs text-yellow-600">
-            <Circle className="size-2 fill-yellow-500" />
-            <span>QR Active</span>
+        ) : (
+          <div className="pt-3 border-t border-gray-100">
+            <span className="text-xs text-muted-foreground">No active orders</span>
           </div>
         )}
       </CardContent>
@@ -135,7 +114,7 @@ const TableCard = ({ table, activeOrders, onClick, isFiltered }) => {
   );
 };
 
-const TableListRow = ({ table, activeOrders, onClick, isFiltered }) => {
+const TableListRow = ({ table, activeOrders, onClick }) => {
   const statusKey = calculateTableStatus(table, activeOrders);
   const statusConfig = TABLE_STATUS_CONFIG[statusKey] || TABLE_STATUS_CONFIG.available;
   const hasUnpaid = activeOrders.some(o => ["UNPAID", "PENDING"].includes(o.paymentStatus));
@@ -147,48 +126,27 @@ const TableListRow = ({ table, activeOrders, onClick, isFiltered }) => {
     ? Math.floor((Date.now() - new Date(activeOrders[0].createdAt).getTime()) / 60000)
     : 0;
   const tableTotal = activeOrders.reduce((sum, o) => sum + (o.total || 0), 0);
-  const latestOrder = activeOrders[activeOrders.length - 1];
 
   return (
     <div
-      className={`flex items-center gap-4 p-3 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors ${
-        hasUnpaid ? "border-red-200 bg-red-50/30" :
-        hasDelayed ? "border-orange-200 bg-orange-50/30" :
-        statusKey === "ready" ? "border-purple-200 bg-purple-50/30" : ""
+      className={`flex items-center gap-4 p-4 border-b last:border-b-0 hover:bg-muted/30 cursor-pointer transition-colors ${
+        hasUnpaid ? "bg-red-50/50" : hasDelayed ? "bg-orange-50/50" : ""
       }`}
       onClick={onClick}
     >
       <div className={`size-3 rounded-full ${statusConfig.color}`} />
-
-      <div className="w-16 font-medium">T{table.tableNumber}</div>
-
+      <div className="w-20 font-semibold">T{table.tableNumber}</div>
       <div className="flex-1 text-sm text-muted-foreground">{table.area || "Main"}</div>
-
-      <div className="w-16 text-center">
-        <Badge variant="outline" className="text-xs">{table.capacity || 4} seats</Badge>
+      <div className="w-16 text-center text-sm">{table.capacity || 4}</div>
+      <div className="w-28">
+        <Badge className={`${statusConfig.color} text-white text-xs`}>{statusConfig.label}</Badge>
       </div>
-
-      <div className="w-24 text-center">
-        <Badge className={`${statusConfig.color} text-white text-xs`}>
-          {statusConfig.label}
-        </Badge>
-      </div>
-
-      <div className="w-16 text-center text-sm">
-        {activeOrders.length}
-      </div>
-
-      <div className="w-24 text-right font-bold text-sm">
-        {(tableTotal || 0).toLocaleString()} ETB
-      </div>
-
-      <div className="w-20 text-right text-xs text-muted-foreground">
-        {preparationTime}m
-      </div>
-
-      <div className="w-20 text-right">
-        {hasDelayed && <AlertCircle className="size-4 text-orange-500 ml-auto" />}
-        {hasUnpaid && <CreditCard className="size-4 text-red-500 ml-auto" />}
+      <div className="w-16 text-center text-sm">{activeOrders.length}</div>
+      <div className="w-24 text-right font-semibold text-sm">{(tableTotal || 0).toLocaleString()}</div>
+      <div className="w-16 text-right text-sm text-muted-foreground">{preparationTime}m</div>
+      <div className="w-12 text-right">
+        {hasDelayed && <AlertCircle className="size-4 text-orange-500" />}
+        {hasUnpaid && <CreditCard className="size-4 text-red-500" />}
       </div>
     </div>
   );
@@ -197,7 +155,6 @@ const TableListRow = ({ table, activeOrders, onClick, isFiltered }) => {
 const ManagerTableOverview = ({ branchId, tables: propTables, orders: propOrders, statusFilter }) => {
   const { tables: storeTables, getTablesByBranch, isLoading: tablesLoading } = useTableStore();
   const { orders: storeOrders, getBranchOrders, isLoading: ordersLoading } = useOrderStore();
-  const { staff, fetchStaffByBranch } = useUserStore();
 
   const tables = propTables || storeTables || [];
   const orders = propOrders || storeOrders || [];
@@ -217,12 +174,6 @@ const ManagerTableOverview = ({ branchId, tables: propTables, orders: propOrders
     }
   }, [branchId, propOrders, getBranchOrders]);
 
-  useEffect(() => {
-    if (branchId) {
-      fetchStaffByBranch(branchId);
-    }
-  }, [branchId, fetchStaffByBranch]);
-
   const tableOrderMap = useMemo(() => {
     const map = {};
     const activeOrders = orders.filter(o => !["COMPLETED", "CANCELLED"].includes(o.orderStatus));
@@ -238,33 +189,14 @@ const ManagerTableOverview = ({ branchId, tables: propTables, orders: propOrders
   }, [orders]);
 
   const statusCounts = useMemo(() => {
-    const counts = {
-      all: tables.length,
-      available: 0,
-      occupied: 0,
-      ordering: 0,
-      preparing: 0,
-      ready: 0,
-      served: 0,
-      payment_pending: 0,
-      attention: 0,
-      cleaning: 0,
-    };
-
+    const counts = { all: tables.length, available: 0, occupied: 0, attention: 0 };
     tables.forEach(table => {
       const tableOrders = tableOrderMap[table._id] || [];
       const status = calculateTableStatus(table, tableOrders);
       if (status === "available") counts.available++;
-      else if (status === "occupied") counts.occupied++;
-      else if (status === "ordering") counts.ordering++;
-      else if (status === "preparing") counts.preparing++;
-      else if (status === "ready") counts.ready++;
-      else if (status === "served") counts.served++;
-      else if (status === "payment_pending") counts.payment_pending++;
-      else if (status === "attention") counts.attention++;
-      else if (status === "cleaning") counts.cleaning++;
+      else if (["occupied", "ordering", "preparing", "ready", "served"].includes(status)) counts.occupied++;
+      else if (["attention", "payment_pending"].includes(status)) counts.attention++;
     });
-
     return counts;
   }, [tables, tableOrderMap]);
 
@@ -273,31 +205,27 @@ const ManagerTableOverview = ({ branchId, tables: propTables, orders: propOrders
     return tables.filter(table => {
       const tableOrders = tableOrderMap[table._id] || [];
       const status = calculateTableStatus(table, tableOrders);
-      return status === statusFilter;
+      if (statusFilter === "available") return status === "available";
+      if (statusFilter === "occupied") return ["occupied", "ordering", "preparing", "ready", "served"].includes(status);
+      if (statusFilter === "attention") return ["attention", "payment_pending"].includes(status);
+      return true;
     });
   }, [tables, tableOrderMap, statusFilter]);
 
   const statusTabs = [
-    { key: null, label: `All`, count: statusCounts.all },
+    { key: null, label: "All", count: statusCounts.all },
     { key: "available", label: "Available", count: statusCounts.available },
     { key: "occupied", label: "Occupied", count: statusCounts.occupied },
-    { key: "ordering", label: "Ordering", count: statusCounts.ordering },
-    { key: "preparing", label: "Preparing", count: statusCounts.preparing },
-    { key: "ready", label: "Ready", count: statusCounts.ready },
-    { key: "served", label: "Served", count: statusCounts.served },
-    { key: "payment_pending", label: "Pay Pending", count: statusCounts.payment_pending },
     { key: "attention", label: "Attention", count: statusCounts.attention },
   ];
 
   if (tablesLoading && tables.length === 0) {
     return (
       <Card>
-        <CardHeader>
-          <CardTitle>Floor Overview</CardTitle>
-        </CardHeader>
+        <CardHeader><CardTitle>Floor Overview</CardTitle></CardHeader>
         <CardContent>
-          <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-            {[...Array(8)].map((_, i) => <Skeleton key={i} className="h-32" />)}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[...Array(8)].map((_, i) => <Skeleton key={i} className="h-40" />)}
           </div>
         </CardContent>
       </Card>
@@ -307,48 +235,29 @@ const ManagerTableOverview = ({ branchId, tables: propTables, orders: propOrders
   return (
     <>
       <Card>
-        <CardHeader className="pb-2">
+        <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Users className="size-4" />
+            <CardTitle className="flex items-center gap-2">
+              <Users className="size-5" />
               Floor Overview
             </CardTitle>
-            <div className="flex gap-2">
-              <div className="flex border rounded-lg overflow-hidden">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className={`h-8 px-2 ${viewMode === "grid" ? "bg-muted" : ""}`}
-                  onClick={() => setViewMode("grid")}
-                >
-                  <LayoutGrid className="size-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className={`h-8 px-2 ${viewMode === "list" ? "bg-muted" : ""}`}
-                  onClick={() => setViewMode("list")}
-                >
-                  <List className="size-4" />
-                </Button>
-              </div>
+            <div className="flex border rounded-lg overflow-hidden">
+              <Button variant="ghost" size="sm" className={`h-8 px-3 ${viewMode === "grid" ? "bg-muted" : ""}`} onClick={() => setViewMode("grid")}>
+                <LayoutGrid className="size-4" />
+              </Button>
+              <Button variant="ghost" size="sm" className={`h-8 px-3 ${viewMode === "list" ? "bg-muted" : ""}`} onClick={() => setViewMode("list")}>
+                <List className="size-4" />
+              </Button>
             </div>
           </div>
-
-          <div className="flex gap-1 flex-wrap mt-2">
+          <div className="flex gap-2 mt-3">
             {statusTabs.map(tab => (
               <Badge
                 key={tab.key || "all"}
                 variant={statusFilter === tab.key ? "default" : "outline"}
-                className={`cursor-pointer text-xs ${
-                  tab.key === "ready" && tab.count > 0 ? "border-purple-500 text-purple-600" :
-                  tab.key === "attention" && tab.count > 0 ? "border-pink-500 text-pink-600" :
-                  tab.key === "payment_pending" && tab.count > 0 ? "border-red-500 text-red-600" :
-                  ""
+                className={`cursor-pointer px-3 py-1 ${
+                  tab.key === "attention" && tab.count > 0 ? "border-pink-500 text-pink-600" : ""
                 }`}
-                onClick={() => {
-                  // Parent handles filtering via statusFilter prop
-                }}
               >
                 {tab.label} ({tab.count})
               </Badge>
@@ -360,40 +269,36 @@ const ManagerTableOverview = ({ branchId, tables: propTables, orders: propOrders
           {tables.length === 0 ? (
             <EmptyState title="No tables" description="Tables will appear here once configured." />
           ) : filteredTables.length === 0 ? (
-            <EmptyState
-              title="No tables match filter"
-              description="Try selecting a different status filter."
-            />
+            <EmptyState title="No tables match filter" description="Try selecting a different status filter." />
           ) : viewMode === "grid" ? (
-            <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
               {filteredTables.map(table => (
                 <TableCard
                   key={table._id}
                   table={table}
                   activeOrders={tableOrderMap[table._id] || []}
-                  isFiltered={!!statusFilter}
                   onClick={() => setSelectedTable(table)}
                 />
               ))}
             </div>
           ) : (
-            <div className="space-y-1">
-              <div className="flex items-center gap-4 px-3 py-2 text-xs text-muted-foreground border-b">
-                <div className="w-16">Table</div>
+            <div>
+              <div className="flex items-center gap-4 px-4 py-2 text-xs font-medium text-muted-foreground border-b bg-muted/50">
+                <div className="w-3" />
+                <div className="w-20">Table</div>
                 <div className="flex-1">Area</div>
-                <div className="w-16 text-center">Capacity</div>
-                <div className="w-24 text-center">Status</div>
+                <div className="w-16 text-center">Seats</div>
+                <div className="w-28 text-center">Status</div>
                 <div className="w-16 text-center">Orders</div>
                 <div className="w-24 text-right">Total</div>
-                <div className="w-20 text-right">Time</div>
-                <div className="w-20 text-right">Alerts</div>
+                <div className="w-16 text-right">Time</div>
+                <div className="w-12 text-right">!</div>
               </div>
               {filteredTables.map(table => (
                 <TableListRow
                   key={table._id}
                   table={table}
                   activeOrders={tableOrderMap[table._id] || []}
-                  isFiltered={!!statusFilter}
                   onClick={() => setSelectedTable(table)}
                 />
               ))}
@@ -407,9 +312,7 @@ const ManagerTableOverview = ({ branchId, tables: propTables, orders: propOrders
         orders={orders}
         open={!!selectedTable}
         onClose={() => setSelectedTable(null)}
-        onOrderClick={(order) => {
-          // Handle order click - could open order details
-        }}
+        onOrderClick={() => {}}
       />
     </>
   );

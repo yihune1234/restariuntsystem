@@ -9,30 +9,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { OrderStatusBadge } from "./StatusBadge";
-import {
-  Users, RefreshCw, Clock, CheckCircle2, AlertCircle,
-  ShoppingBag, Truck, Eye,
-} from "lucide-react";
+import { CheckCircle2, Clock, Users, Truck } from "lucide-react";
 
 const TABLE_STATUS_CONFIG = {
-  AVAILABLE: {
-    label: "Available",
-    color: "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300",
-    borderColor: "border-green-200 dark:border-green-800",
-    icon: CheckCircle2,
-  },
-  OCCUPIED: {
-    label: "Occupied",
-    color: "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300",
-    borderColor: "border-blue-200 dark:border-blue-800",
-    icon: Users,
-  },
-  RESERVED: {
-    label: "Reserved",
-    color: "bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300",
-    borderColor: "border-purple-200 dark:border-purple-800",
-    icon: Clock,
-  },
+  AVAILABLE: { label: "Available", color: "bg-green-100 text-green-800", border: "border-green-300" },
+  OCCUPIED: { label: "Occupied", color: "bg-blue-100 text-blue-800", border: "border-blue-300" },
+  RESERVED: { label: "Reserved", color: "bg-purple-100 text-purple-800", border: "border-purple-300" },
 };
 
 const WaiterTables = () => {
@@ -58,8 +40,6 @@ const WaiterTables = () => {
     loadData();
   }, [loadData]);
 
-  // A waiter's working area shows ONLY the tables assigned to them.
-  // Table.assignedWaiterId is set by Manager/Owner via the assignment hub.
   const myTables = tables.filter((t) => {
     const assignedId = t.assignedWaiterId?._id || t.assignedWaiterId;
     return assignedId && String(assignedId) === String(waiterId);
@@ -97,20 +77,18 @@ const WaiterTables = () => {
   const isLoading = ordersLoading || tablesLoading;
 
   return (
-    <div className="p-4 lg:p-6 space-y-5">
-      {/* Header */}
+    <div className="p-4 lg:p-6 space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">My Tables</h1>
-          <p className="text-sm text-gray-500">Manage your assigned tables</p>
+          <h1 className="text-2xl font-bold">My Tables</h1>
+          <p className="text-sm text-muted-foreground">Your assigned tables</p>
         </div>
         <Button variant="outline" size="sm" onClick={loadData} disabled={isLoading}>
-          <RefreshCw className={`size-4 mr-1 ${isLoading ? "animate-spin" : ""}`} /> Refresh
+          Refresh
         </Button>
       </div>
 
-      {/* Status Filter */}
-      <div className="flex gap-2 overflow-x-auto scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0">
+      <div className="flex gap-2 overflow-x-auto pb-2">
         {[
           { key: "ALL", label: "All" },
           { key: "AVAILABLE", label: "Available" },
@@ -120,36 +98,31 @@ const WaiterTables = () => {
           <button
             key={f.key}
             onClick={() => setStatusFilter(f.key)}
-            className={`px-4 py-2 rounded-xl text-sm font-semibold whitespace-nowrap transition-all ${
+            className={`px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all ${
               statusFilter === f.key
-                ? "bg-amber-500 text-white shadow-lg"
-                : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700"
+                ? "bg-primary text-white"
+                : "bg-muted text-muted-foreground hover:bg-muted/80"
             }`}
           >
-            {f.label}
-            <span className={`ml-1.5 text-xs ${statusFilter === f.key ? "opacity-80" : "text-gray-400"}`}>
-              {statusCounts[f.key] || 0}
-            </span>
+            {f.label} ({statusCounts[f.key] || 0})
           </button>
         ))}
       </div>
 
-      {/* Tables Grid */}
       {isLoading && tables.length === 0 ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
-          {[...Array(8)].map((_, i) => <Skeleton key={i} className="h-32 w-full" />)}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {[...Array(8)].map((_, i) => <Skeleton key={i} className="h-36" />)}
         </div>
       ) : filteredTables.length === 0 ? (
         <EmptyState
           title="No tables found"
-          description={statusFilter !== "ALL" ? "No tables with this status" : "You don't have any tables assigned"}
+          description={statusFilter !== "ALL" ? "No tables with this status" : "No tables assigned to you"}
           icon={Users}
         />
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {filteredTables.map((table) => {
             const config = TABLE_STATUS_CONFIG[table.status] || TABLE_STATUS_CONFIG.AVAILABLE;
-            const Icon = config.icon;
             const activeOrders = getActiveOrders(table._id);
             const readyOrders = getReadyOrders(table._id);
             const hasReady = readyOrders.length > 0;
@@ -157,44 +130,36 @@ const WaiterTables = () => {
             return (
               <Card
                 key={table._id}
-                className={`cursor-pointer transition-all hover:shadow-lg overflow-hidden ${
-                  hasReady ? "ring-2 ring-green-500 ring-opacity-50" : ""
-                } ${config.borderColor}`}
+                className={`cursor-pointer transition-all hover:shadow-lg border-2 ${config.border} ${
+                  hasReady ? "ring-2 ring-green-500" : ""
+                }`}
                 onClick={() => openTableDetail(table)}
               >
-                <CardContent className="p-4 text-center">
-                  <div className={`size-14 rounded-full ${config.color} mx-auto mb-3 flex items-center justify-center`}>
-                    <Icon className="size-6" />
-                  </div>
-                  <p className="font-bold text-lg text-gray-900 dark:text-white">Table {table.tableNumber}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">{table.capacity} seats</p>
-                  <Badge className={`mt-2 text-[10px] ${config.color}`}>
-                    {config.label}
-                  </Badge>
-                  {activeOrders.length > 0 && (
-                    <div className="mt-3 border-t pt-2 text-left">
-                      <p className="text-[10px] text-gray-500 dark:text-gray-400 mb-1">
-                        Current Order: #{activeOrders[0].orderNumber || activeOrders[0]._id?.slice(-4)}
-                        {activeOrders.length > 1 && ` (+${activeOrders.length - 1} more)`}
-                      </p>
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-[10px] font-medium text-gray-600 dark:text-gray-300">Order:</span>
-                        <Badge variant="outline" className="text-[9px] px-1 py-0">{activeOrders[0].orderStatus}</Badge>
-                      </div>
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-[10px] font-medium text-gray-600 dark:text-gray-300">Payment:</span>
-                        <Badge variant="outline" className="text-[9px] px-1 py-0">{activeOrders[0].paymentStatus}</Badge>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-medium text-gray-600 dark:text-gray-300">Waiter:</span>
-                        <span className="text-[10px] text-gray-500 dark:text-gray-400 truncate max-w-[80px]">{activeOrders[0].createdBy?.name || "Unassigned"}</span>
-                      </div>
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between mb-3">
+                    <div>
+                      <p className="font-bold text-xl">Table {table.tableNumber}</p>
+                      <p className="text-sm text-muted-foreground">{table.capacity} seats</p>
                     </div>
-                  )}
-                  {hasReady && (
-                    <Badge className="mt-2 bg-green-500 text-white text-[10px]">
-                      <Truck className="size-2.5 mr-0.5" /> Ready to serve
-                    </Badge>
+                    <Badge variant="outline" className={config.color}>{config.label}</Badge>
+                  </div>
+
+                  {activeOrders.length > 0 ? (
+                    <div className="space-y-2 pt-3 border-t">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">Order #{activeOrders[0].orderNumber?.slice(-6) || activeOrders[0]._id?.slice(-6)}</span>
+                        {hasReady && (
+                          <Badge className="bg-green-500 text-white text-xs">
+                            <Truck className="size-3 mr-1" /> Ready
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-lg font-bold">{(activeOrders[0].total || 0).toLocaleString()} ETB</p>
+                    </div>
+                  ) : (
+                    <div className="pt-3 border-t">
+                      <p className="text-sm text-muted-foreground">No active orders</p>
+                    </div>
                   )}
                 </CardContent>
               </Card>
@@ -203,67 +168,50 @@ const WaiterTables = () => {
         </div>
       )}
 
-      {/* Table Detail Dialog */}
       <Dialog open={showDetail} onOpenChange={setShowDetail}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>
-              Table {selectedTable?.tableNumber}
-            </DialogTitle>
+            <DialogTitle>Table {selectedTable?.tableNumber}</DialogTitle>
           </DialogHeader>
           {selectedTable && (
             <div className="space-y-4">
-              {/* Table Info */}
-              <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+              <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
                 <div>
                   <p className="font-medium">{selectedTable.capacity} seats</p>
-                  <p className="text-xs text-gray-500">
-                    {(() => {
-                      const active = getActiveOrders(selectedTable._id);
-                      if (active.length === 0) return "No active orders";
-                      return active.some(o => String(o.assignedWaiterId) === String(waiterId))
-                        ? "You are serving this table"
-                        : "Being served";
-                    })()}
-                  </p>
+                  <p className="text-sm text-muted-foreground">Status: {selectedTable.status}</p>
                 </div>
-                <Badge className={TABLE_STATUS_CONFIG[selectedTable.status]?.color}>
-                  {TABLE_STATUS_CONFIG[selectedTable.status]?.label || selectedTable.status}
+                <Badge variant="outline" className={TABLE_STATUS_CONFIG[selectedTable.status]?.color}>
+                  {TABLE_STATUS_CONFIG[selectedTable.status]?.label}
                 </Badge>
               </div>
 
-              {/* Orders */}
               <div>
                 <h4 className="text-sm font-semibold mb-2">Orders</h4>
                 {getTableOrders(selectedTable._id).length === 0 ? (
-                  <p className="text-sm text-gray-500 text-center py-4">No orders for this table</p>
+                  <p className="text-sm text-muted-foreground text-center py-4">No orders</p>
                 ) : (
                   <div className="space-y-2">
                     {getTableOrders(selectedTable._id).map((order) => (
                       <div key={order._id} className="flex items-center justify-between p-3 border rounded-lg">
                         <div>
-                          <p className="text-sm font-medium">
-                            #{order.orderNumber || order._id?.slice(-4)} • {order.source}
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            {order.items?.length || 0} items • {(order.total || 0).toLocaleString()} ETB
-                          </p>
+                          <p className="text-sm font-medium">#{order.orderNumber?.slice(-6) || order._id?.slice(-6)}</p>
+                          <p className="text-xs text-muted-foreground">{order.items?.length || 0} items</p>
                         </div>
-                        <OrderStatusBadge status={order.orderStatus} paymentStatus={order.paymentStatus} />
+                        <div className="text-right">
+                          <p className="font-bold">{(order.total || 0).toLocaleString()} ETB</p>
+                          <OrderStatusBadge status={order.orderStatus} paymentStatus={order.paymentStatus} />
+                        </div>
                       </div>
                     ))}
                   </div>
                 )}
               </div>
 
-              {/* Actions */}
               <div className="flex gap-2">
                 <Button variant="outline" className="flex-1" onClick={() => setShowDetail(false)}>
                   Close
                 </Button>
-                <Button className="flex-1" onClick={() => { setShowDetail(false); }}>
-                  <ShoppingBag className="size-4 mr-2" /> New Order
-                </Button>
+                <Button className="flex-1">New Order</Button>
               </div>
             </div>
           )}

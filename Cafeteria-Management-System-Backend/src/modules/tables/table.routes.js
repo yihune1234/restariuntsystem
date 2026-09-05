@@ -177,6 +177,34 @@ tableRouter.patch(
 
 /**
  * @openapi
+ * /tables/{tableId}:
+ *   delete:
+ *     summary: Deactivate/Archive a table (soft delete)
+ *     tags:
+ *       - Tables
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: tableId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Table deactivated
+ *       400:
+ *         description: Cannot delete table with active orders
+ */
+tableRouter.delete(
+  '/:tableId',
+  validate(tableIdParamSchema),
+  requireRoles('OWNER', 'MANAGER'),
+  tableController.deactivateTable
+);
+
+/**
+ * @openapi
  * /tables/{tableId}/regenerate-qr:
  *   post:
  *     summary: Regenerate secure QR token for a table

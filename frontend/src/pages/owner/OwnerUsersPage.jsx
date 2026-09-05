@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from "react";
-import { useAuthStore } from "@/store/useAuthStore";
 import { useBranchStore } from "@/store/useBranchStore";
 import useUserStore from "@/store/useUserStore";
 import { Button } from "@/components/ui/button";
@@ -21,33 +20,28 @@ const ALL_ROLES = [
 ];
 
 const OwnerUsersPage = () => {
-  const { authUser } = useAuthStore();
   const { branches, fetchBranches } = useBranchStore();
   const { staff, fetchStaffByBranch, createStaff, updateStaff, deleteStaff, isLoading } = useUserStore();
 
   const [activeTab, setActiveTab] = useState("MANAGER");
-  const [selectedBranch, setSelectedBranch] = useState("");
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState({ name: "", email: "", phone: "", role: "MANAGER", branchId: "", password: "" });
   const [busy, setBusy] = useState(false);
 
+  // In single-branch mode, use the first branch automatically
+  const isSingleBranch = branches.length <= 1;
+  const activeBranchId = isSingleBranch && branches.length > 0 ? branches[0]._id : null;
+
   useEffect(() => {
-    // Single-branch mode: auto-resolve organization
     fetchBranches();
   }, [fetchBranches]);
 
   useEffect(() => {
-    if (branches.length > 0 && !selectedBranch) {
-      setSelectedBranch(branches[0]._id);
+    if (activeBranchId) {
+      fetchStaffByBranch(activeBranchId);
     }
-  }, [branches]);
-
-  useEffect(() => {
-    if (selectedBranch) {
-      fetchStaffByBranch(selectedBranch);
-    }
-  }, [selectedBranch, fetchStaffByBranch]);
+  }, [activeBranchId, fetchStaffByBranch]);
 
   const filteredStaff = staff.filter((s) => {
     if (activeTab === "OWNER" && s.role !== "OWNER") return false;
@@ -65,7 +59,7 @@ const OwnerUsersPage = () => {
 
   const openCreate = () => {
     setEditingId(null);
-    setForm({ name: "", email: "", phone: "", role: activeTab === "OWNER" ? "MANAGER" : activeTab, branchId: selectedBranch, password: "" });
+    setForm({ name: "", email: "", phone: "", role: activeTab === "OWNER" ? "MANAGER" : activeTab, branchId: activeBranchId || "", password: "" });
     setOpen(true);
   };
 
@@ -88,37 +82,39 @@ const OwnerUsersPage = () => {
     setBusy(false);
     if (res.success) {
       setOpen(false);
-      fetchStaffByBranch(selectedBranch);
+      fetchStaffByBranch(activeBranchId);
     }
   };
 
   const handleDelete = async (id) => {
     if (!confirm("Deactivate this user?")) return;
     const res = await deleteStaff(id);
-    if (res.success) fetchStaffByBranch(selectedBranch);
+    if (res.success) fetchStaffByBranch(activeBranchId);
   };
 
   const getRoleColor = (role) => ALL_ROLES.find((r) => r.key === role)?.color || "bg-gray-100 text-gray-700";
 
   return (
     <div className="p-4 lg:p-6 space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold">Users & Staff</h1>
-          <p className="text-sm text-muted-foreground">Manage all staff across branches</p>
+          <p className="text-sm text-muted-foreground">Manage all staff</p>
         </div>
         <div className="flex items-center gap-2">
-          <select
-            value={selectedBranch}
-            onChange={(e) => setSelectedBranch(e.target.value)}
-            className="h-9 rounded-md border bg-transparent px-3 text-sm"
-          >
-            <option value="">Select Branch</option>
-            {branches.map((b) => (
-              <option key={b._id} value={b._id}>{b.name}</option>
-            ))}
-          </select>
-          <Button variant="outline" size="sm" onClick={() => fetchStaffByBranch(selectedBranch)}>
+          {!isSingleBranch && (
+            <select
+              value={activeBranchId || ""}
+              onChange={(e) => fetchStaffByBranch(e.target.value)}
+              className="h-9 rounded-md border bg-transparent px-3 text-sm"
+            >
+              <option value="">Select Branch</option>
+              {branches.map((b) => (
+                <option key={b._id} value={b._id}>{b.name}</option>
+              ))}
+            </select>
+          )}
+          <Button variant="outline" size="sm" onClick={() => fetchStaffByBranch(activeBranchId)}>
             <RefreshCw className="size-4" />
           </Button>
           <Button size="sm" onClick={openCreate}>
@@ -148,8 +144,8 @@ const OwnerUsersPage = () => {
 
       {/* Staff Grid */}
       {isLoading ? (
-        <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-3">
-          {[...Array(6)].map((_, i) => <Skeleton key={i} className="h-32" />)}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {[...Array(6)].map((_, i) => <Skeleton key={i} className="h-28" />)}
         </div>
       ) : filteredStaff.length === 0 ? (
         <Card>
@@ -160,40 +156,32 @@ const OwnerUsersPage = () => {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {filteredStaff.map((s) => (
-            <Card key={s._id}>
+            <Card key={s._id} className="hover:shadow-md transition-shadow">
               <CardContent className="p-4">
-                <div className="flex items-start justify-between mb-3">
+                <div className="flex items-start justify-between mb-2">
                   <div className="flex items-center gap-3">
                     <div className="size-10 rounded-full bg-muted flex items-center justify-center">
                       <User className="size-5 text-muted-foreground" />
                     </div>
                     <div>
                       <p className="font-semibold">{s.name}</p>
-                      <p className="text-xs text-muted-foreground">{s.email}</p>
+                      <p className="text-xs text-muted-foreground truncate max-w-[150px]">{s.email}</p>
                     </div>
                   </div>
+                </div>
+                <div className="flex items-center justify-between mt-3 pt-3 border-t">
                   <Badge className={cn("text-xs capitalize", s.isActive ? getRoleColor(s.role) : "bg-gray-100 text-gray-400")}>
                     {s.isActive ? s.role : "Inactive"}
                   </Badge>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="text-xs text-muted-foreground">
-                    {s.phone && <span>{s.phone}</span>}
-                    {s.branchId && (
-                      <span className="ml-2">
-                        · {branches.find((b) => b._id === (s.branchId?._id || s.branchId))?.name || s.branchId}
-                      </span>
-                    )}
-                  </div>
                   <div className="flex gap-1">
                     <Button variant="ghost" size="icon-sm" onClick={() => openEdit(s)} title="Edit">
-                      <Edit className="size-3" />
+                      <Edit className="size-4" />
                     </Button>
                     {s.isActive && s.role !== "OWNER" && (
                       <Button variant="ghost" size="icon-sm" onClick={() => handleDelete(s._id)} title="Deactivate">
-                        <Trash2 className="size-3 text-red-500" />
+                        <Trash2 className="size-4 text-red-500" />
                       </Button>
                     )}
                   </div>
@@ -223,16 +211,18 @@ const OwnerUsersPage = () => {
                 <option key={r.key} value={r.key}>{r.label}</option>
               ))}
             </select>
-            <select
-              value={form.branchId}
-              onChange={(e) => setForm({ ...form, branchId: e.target.value })}
-              className="w-full h-9 rounded-md border bg-transparent px-2 text-sm"
-            >
-              <option value="">Select Branch</option>
-              {branches.map((b) => (
-                <option key={b._id} value={b._id}>{b.name}</option>
-              ))}
-            </select>
+            {!isSingleBranch && (
+              <select
+                value={form.branchId}
+                onChange={(e) => setForm({ ...form, branchId: e.target.value })}
+                className="w-full h-9 rounded-md border bg-transparent px-2 text-sm"
+              >
+                <option value="">Select Branch</option>
+                {branches.map((b) => (
+                  <option key={b._id} value={b._id}>{b.name}</option>
+                ))}
+              </select>
+            )}
             {!editingId && (
               <Input
                 placeholder="Password (min 6 chars)"

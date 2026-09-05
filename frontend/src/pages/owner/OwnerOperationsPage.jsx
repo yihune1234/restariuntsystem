@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from "react";
-import { useAuthStore } from "@/store/useAuthStore";
 import { useBranchStore } from "@/store/useBranchStore";
 import { useOfflineStore } from "@/store/useOfflineStore";
 import ManagerKitchenBoard from "../manager/components/ManagerKitchenBoard";
@@ -25,14 +24,14 @@ import { ChefHat, Package, Banknote, WifiOff, Loader2, Building2 } from "lucide-
  *  - Offline-transaction reconcile (OWNER-exclusive)
  */
 const OwnerOperationsPage = () => {
-  const { authUser } = useAuthStore();
   const { branches, fetchBranches } = useBranchStore();
   const { pendingCount, isSyncing } = useOfflineStore();
   const [branchId, setBranchId] = useState("");
   const [reconciling, setReconciling] = useState(false);
 
+  const isSingleBranch = branches.length <= 1;
+
   useEffect(() => {
-    // Single-branch mode: auto-resolve organization
     fetchBranches();
   }, [fetchBranches]);
 
@@ -82,22 +81,23 @@ const OwnerOperationsPage = () => {
         <div>
           <h1 className="text-2xl font-bold">Branch Operations</h1>
           <p className="text-sm text-muted-foreground">
-            Monitor kitchen, inventory, and reconcile each branch. Manager capabilities,
-            now available org-wide to the owner.
+            Monitor kitchen, inventory, and reconcile.
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Building2 className="size-4 text-muted-foreground" />
-          <select
-            className="h-9 rounded-md border bg-transparent px-3 text-sm min-w-[200px]"
-            value={branchId}
-            onChange={(e) => setBranchId(e.target.value)}
-          >
-            {(branches || []).map((b) => (
-              <option key={b._id} value={b._id}>{b.name}</option>
-            ))}
-          </select>
-        </div>
+        {!isSingleBranch && (
+          <div className="flex items-center gap-2">
+            <Building2 className="size-4 text-muted-foreground" />
+            <select
+              className="h-9 rounded-md border bg-transparent px-3 text-sm min-w-[200px]"
+              value={branchId}
+              onChange={(e) => setBranchId(e.target.value)}
+            >
+              {(branches || []).map((b) => (
+                <option key={b._id} value={b._id}>{b.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
       {!branchId ? (

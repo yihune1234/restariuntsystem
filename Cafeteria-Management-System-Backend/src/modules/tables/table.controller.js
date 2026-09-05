@@ -104,6 +104,14 @@ class TableController {
     const table = await tableService.clearTable(req.params.tableId, req.user);
     return ApiResponse.success(res, 200, 'Table cleared and available', table);
   });
+
+  /**
+   * Deactivate (soft delete) a table. Checks for active orders before deletion.
+   */
+  deactivateTable = asyncHandler(async (req, res) => {
+    const result = await tableService.deactivateTable(req.params.tableId, req.user);
+    return ApiResponse.success(res, 200, result.message, result.table);
+  });
 }
 
 module.exports = new TableController();

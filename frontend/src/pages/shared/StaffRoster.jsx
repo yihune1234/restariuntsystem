@@ -208,39 +208,38 @@ const StaffRoster = ({ title, roles = ["waiter"] }) => {
       ) : filteredStaff.length === 0 ? (
         <p className="text-muted-foreground">No staff found.</p>
       ) : (
-        <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {filteredStaff.map((s) => (
-            <Card key={s._id}>
+            <Card key={s._id} className="hover:shadow-md transition-shadow">
               <CardContent className="p-4">
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center gap-3">
-                    <div className="size-9 rounded-full bg-muted flex items-center justify-center">
-                      <User className="size-4 text-muted-foreground" />
+                    <div className="size-10 rounded-full bg-muted flex items-center justify-center">
+                      <User className="size-5 text-muted-foreground" />
                     </div>
                     <div>
                       <p className="font-semibold">{s.name}</p>
-                      <p className="text-xs text-muted-foreground">{s.email}</p>
+                      <p className="text-xs text-muted-foreground truncate max-w-[150px]">{s.email}</p>
                     </div>
                   </div>
-                  <Badge className={cn("text-xs", s.isActive ? "bg-green-600" : "bg-gray-500")}>
-                    {s.isActive ? "Active" : "Inactive"}
-                  </Badge>
                 </div>
-                <div className="flex items-center gap-2 mb-3">
-                  <Badge variant="outline" className="text-xs">{s.role}</Badge>
-                  {s.branchId && (
-                    <span className="text-xs text-muted-foreground truncate">
-                      {branches.find(b => b._id === (s.branchId?._id || s.branchId))?.name || s.branchId}
-                    </span>
-                  )}
-                </div>
-                <div className="flex gap-1">
-                  <Button variant="ghost" size="icon-sm" onClick={() => handleView(s)} title="Edit">
-                    <Edit className="size-3" />
-                  </Button>
-                  <Button variant="ghost" size="icon-sm" onClick={() => handleRemove(s._id)} title="Deactivate" disabled={!s.isActive}>
-                    <Trash2 className="size-3 text-red-500" />
-                  </Button>
+                <div className="flex items-center justify-between mt-3 pt-3 border-t">
+                  <div className="flex items-center gap-2">
+                    <Badge className={cn("text-xs", s.isActive ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500")}>
+                      {s.isActive ? "Active" : "Inactive"}
+                    </Badge>
+                    <Badge variant="outline" className="text-xs">{s.role}</Badge>
+                  </div>
+                  <div className="flex gap-1">
+                    <Button variant="ghost" size="icon-sm" onClick={() => handleView(s)} title="Edit">
+                      <Edit className="size-4" />
+                    </Button>
+                    {s.isActive && (
+                      <Button variant="ghost" size="icon-sm" onClick={() => handleRemove(s._id)} title="Deactivate">
+                        <Trash2 className="size-4 text-red-500" />
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </CardContent>
             </Card>

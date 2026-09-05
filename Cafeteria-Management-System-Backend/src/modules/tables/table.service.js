@@ -333,6 +333,47 @@ class TableService {
 
     return table;
   }
+
+  /**
+   * Deactivate (soft delete) a table. Checks for active orders before deletion.
+   * Does not physically remove the record to preserve historical data.
+   */
+  async deactivateTable(tableId, actor) {
+    const table = await Table.findOne({ _id: tableId, deletedAt: null });
+    if (!table) {
+      throw new NotFoundError('Table not found', 'TABLE_NOT_FOUND');
+    }
+
+    // Check for active orders that are not completed/cancelled
+    const Order = require('../orders/order.model');
+    const activeOrders = await Order.find({
+      tableId: tableId,
+      orderStatus: { $nin: ['COMPLETED', 'CANCELLED'] }
+    });
+
+    if (activeOrders.length > 0) {
+      throw new BadRequestError(
+        `Cannot delete table with ${activeOrders.length} active order(s). Complete or cancel all orders first.`,
+        'TABLE_HAS_ACTIVE_ORDERS'
+      );
+    }
+
+    // Soft delete - set isActive=false and deletedAt
+    table.isActive = false;
+    table.deletedAt = new Date();
+    await table.save();
+
+    // Emit realtime update
+    socketEmitter.emitTableStatusChanged(
+      table.branchId.toString(),
+      table._id.toString(),
+      'DEACTIVATED',
+      table.tableNumber,
+      table.capacity
+    );
+
+    return { message: 'Table deactivated successfully', table };
+  }
 }
 
 module.exports = new TableService();
