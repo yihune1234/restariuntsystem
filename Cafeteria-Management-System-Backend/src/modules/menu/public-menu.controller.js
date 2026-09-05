@@ -136,7 +136,6 @@ class PublicMenuController {
     }));
 
     const itemBelongsToMealPeriod = (item, mealPeriodId, isAllDay) => {
-      if (isAllDay) return true;
       const itemMpIds = item.mealPeriodIds || [];
       if (itemMpIds.length === 0) return true;
       return itemMpIds.includes(mealPeriodId);

@@ -235,7 +235,6 @@ export const ItemDialog = ({ open, onOpenChange, editing, form, setForm, categor
   const isAllDayMealType = (mp) => mp.name === "ALL_DAY" || (mp.nameEn || "").toLowerCase().includes("all-day");
 
   const toggleMealPeriod = (mpId, mp) => {
-    if (isAllDayMealType(mp)) return;
     const next = selectedMpIds.includes(mpId)
       ? selectedMpIds.filter(id => id !== mpId)
       : [...selectedMpIds, mpId];
@@ -410,12 +409,17 @@ export const ItemDialog = ({ open, onOpenChange, editing, form, setForm, categor
                 <Clock className="size-3" /> Meal Types
               </Label>
               <p className="text-[11px] text-muted-foreground mb-2">
-                Leave empty to inherit from category. Check specific meal types to assign this item independently.
+                Check the meal types this item appears on. Select All-Day to keep it on all menus — unselecting All-Day removes it from the All-Day menu.
               </p>
+              {selectedMpIds.length === 0 && (
+                <p className="text-[11px] text-amber-700 dark:text-amber-400 border border-dashed border-amber-300 dark:border-amber-700 rounded-md px-2 py-1 mb-1.5 bg-amber-50/40 dark:bg-amber-900/10">
+                  No meal types selected — this item follows its category (including All-Day if the category is All-Day).
+                </p>
+              )}
               <div className="space-y-1.5">
                 {mealPeriods.map(mp => {
                   const allDay = isAllDayMealType(mp);
-                  const isSelected = allDay || selectedMpIds.includes(mp._id);
+                  const isSelected = selectedMpIds.includes(mp._id);
                   return (
                     <button
                       key={mp._id}
@@ -423,7 +427,9 @@ export const ItemDialog = ({ open, onOpenChange, editing, form, setForm, categor
                       onClick={() => toggleMealPeriod(mp._id, mp)}
                       className={`w-full flex items-center gap-3 p-2.5 rounded-lg border text-sm text-left transition-all ${
                         allDay
-                          ? "border-amber-500/60 bg-amber-50/60 dark:bg-amber-900/10 cursor-default"
+                          ? isSelected
+                            ? "border-amber-500 bg-amber-50 dark:bg-amber-900/20"
+                            : "border-gray-200 dark:border-gray-700 hover:border-amber-300"
                           : isSelected
                             ? "border-primary bg-primary/5 dark:bg-primary/10"
                             : "border-gray-200 dark:border-gray-700 hover:border-primary/50"
@@ -442,7 +448,7 @@ export const ItemDialog = ({ open, onOpenChange, editing, form, setForm, categor
                       </div>
                       {allDay && (
                         <span className="flex-shrink-0 text-[10px] font-semibold text-amber-700 dark:text-amber-400 border border-amber-300 dark:border-amber-700 rounded-full px-2 py-0.5">
-                          Always on
+                          {isSelected ? "Selected" : "Off"}
                         </span>
                       )}
                     </button>

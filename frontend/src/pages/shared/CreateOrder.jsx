@@ -133,15 +133,11 @@ const CreateOrder = () => {
   const filteredItems = useMemo(() => {
     let items = foodItems;
     if (selectedMealId !== "all") {
-      const selectedMeal = (mealPeriods || []).find(mp => String(mp._id) === selectedMealId);
-      const isAllDay = selectedMeal && (selectedMeal.name === "ALL_DAY" || (selectedMeal.nameEn || "").toLowerCase().includes("all-day"));
-      if (!isAllDay) {
-        items = items.filter(i => {
-          const itemMpIds = (i.mealPeriodIds || []).map(id => String(id?._id || id));
-          if (itemMpIds.length === 0) return true;
-          return itemMpIds.includes(selectedMealId);
-        });
-      }
+      items = items.filter(i => {
+        const itemMpIds = (i.mealPeriodIds || []).map(id => String(id?._id || id));
+        if (itemMpIds.length === 0) return true;
+        return itemMpIds.includes(selectedMealId);
+      });
     }
     if (selectedCategory) {
       items = items.filter(i => String(i.categoryId) === String(selectedCategory._id));

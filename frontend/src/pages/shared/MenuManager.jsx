@@ -172,19 +172,23 @@ const MenuManager = () => {
 
   const itemBelongsToMealPeriod = useCallback((item, mpId) => {
     const itemMpIds = (item.mealPeriodIds || []).map(id => String(id?._id || id));
+    if (itemMpIds.length > 0 && !itemMpIds.includes(String(mpId))) return false;
+    const mp = mealPeriods.find(m => String(m._id) === String(mpId));
+    const targetIsAllDay = mp && isAllDayMealPeriod(mp);
+    if (targetIsAllDay) return true;
     const cat = getItemCategory(item);
-    const catIsAllDay = cat?.isAllDay || false;
-    const catMpIds = (cat?.mealPeriodIds || []).map(id => String(id?._id || id));
-    const catBelongs = catIsAllDay || catMpIds.length === 0 || catMpIds.includes(mpId);
-    const itemBelongs = itemMpIds.length === 0 || itemMpIds.includes(mpId);
-    return catBelongs && itemBelongs;
-  }, [getItemCategory]);
+    if (!cat) return true;
+    const catIsAllDay = cat.isAllDay || false;
+    const catMpIds = (cat.mealPeriodIds || []).map(id => String(id?._id || id));
+    return catIsAllDay || catMpIds.length === 0 || catMpIds.includes(String(mpId));
+  }, [getItemCategory, mealPeriods, isAllDayMealPeriod]);
 
   const getItemMealTypeBadges = useCallback((item) => {
-    const cat = getItemCategory(item);
-    const catIsAllDay = cat?.isAllDay || false;
     const badges = [];
-    if (catIsAllDay) badges.push({ name: "All-Day", isAllDay: true });
+    const allDayMp = (mealPeriods || []).find(mp => isAllDayMealPeriod(mp));
+    if (allDayMp && itemBelongsToMealPeriod(item, String(allDayMp._id))) {
+      badges.push({ name: "All-Day", isAllDay: true });
+    }
     (mealPeriods || []).forEach(mp => {
       if (isAllDayMealPeriod(mp)) return;
       if (itemBelongsToMealPeriod(item, String(mp._id))) {
@@ -203,11 +207,8 @@ const MenuManager = () => {
       });
     }
     if (mealPeriodFilter !== "all") {
-      const filterMp = mealPeriods.find(mp => String(mp._id) === String(mealPeriodFilter));
-      if (!filterMp || !isAllDayMealPeriod(filterMp)) {
-        const filterMpId = String(mealPeriodFilter);
-        items = items.filter(i => itemBelongsToMealPeriod(i, filterMpId));
-      }
+      const filterMpId = String(mealPeriodFilter);
+      items = items.filter(i => itemBelongsToMealPeriod(i, filterMpId));
     }
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
@@ -224,14 +225,14 @@ const MenuManager = () => {
       items = [...items].sort((a, b) => String(a.categoryId).localeCompare(String(b.categoryId)));
     }
     return items;
-  }, [foodItems, selectedCategory, searchQuery, mealPeriodFilter, categories, sortBy, isAllDayMealPeriod, itemBelongsToMealPeriod]);
+  }, [foodItems, selectedCategory, searchQuery, mealPeriodFilter, sortBy, itemBelongsToMealPeriod]);
 
   const filteredCategories = useMemo(() => {
     if (mealPeriodFilter === "all") return categories;
     const filterMpId = String(mealPeriodFilter);
     return categories.filter(c => {
       if (c.isAllDay) return true;
-      const mpIds = (c.mealPeriodIds || []).map(id => String(id));
+      const mpIds = (c.mealPeriodIds || []).map(id => String(id?._id || id));
       if (mpIds.length === 0) return true;
       return mpIds.includes(filterMpId);
     });
@@ -284,9 +285,6 @@ const MenuManager = () => {
   };
 
   const openCreateMealType = () => {
-    if (mealPeriods.some(mp => mp.name === "ALL_DAY" || (mp.nameEn || "").toLowerCase().includes("all-day"))) {
-      return toast.error("All-Day already exists — it always shows every active category");
-    }
     setEditingMealType(null);
     setMealTypeForm({ name: "", nameEn: "", nameOm: "", nameAm: "", startTime: "", endTime: "", displayOrder: 0, isActive: true });
     setMealTypeOpen(true);
@@ -310,10 +308,23 @@ const MenuManager = () => {
 
   const handleSaveMealType = async () => {
     if (!mealTypeForm.name.trim()) return toast.error("Meal type name required");
-    const isEditingAllDay = mealPeriods.find(mp => mp._id === editingMealType)
-      && (mealTypeForm.name === "ALL_DAY" || (mealTypeForm.nameEn || "").toLowerCase().includes("all-day"));
+    const editingPeriod = mealPeriods.find(mp => mp._id === editingMealType);
+    const isEditingAllDay = editingPeriod && (editingPeriod.name === "ALL_DAY" || (editingPeriod.nameEn || "").toLowerCase().includes("all-day"));
+    const nameIsAllDay = mealTypeForm.name.trim().toUpperCase() === "ALL_DAY"
+      || (mealTypeForm.nameEn || "").toLowerCase().includes("all-day");
+    if (!editingMealType && nameIsAllDay && mealPeriods.some(mp => mp.name === "ALL_DAY" || (mp.nameEn || "").toLowerCase().includes("all-day"))) {
+      return toast.error("All-Day already exists — it always shows every active category");
+    }
+    if (isEditingAllDay && mealTypeForm.name.trim().toUpperCase() !== "ALL_DAY") {
+      return toast.error("All-Day cannot be renamed");
+    }
+    const duplicate = mealPeriods.find(mp =>
+      mp._id !== editingMealType && mp.name.trim().toUpperCase() === mealTypeForm.name.trim().toUpperCase()
+    );
+    if (duplicate) return toast.error(`Meal type "${duplicate.name}" already exists`);
     const payload = {
       ...mealTypeForm,
+      name: mealTypeForm.name.trim().toUpperCase(),
       isActive: isEditingAllDay ? true : mealTypeForm.isActive,
     };
     const res = editingMealType
