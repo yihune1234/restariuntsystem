@@ -1,14 +1,8 @@
 const mongoose = require('mongoose');
 
-const PAYMENT_PROVIDERS = ['CHAPA', 'TELEBIRR', 'CASHIER_CASH', 'CASHIER_CARD', 'CASHIER_BANK_TRANSFER'];
+const PAYMENT_PROVIDERS = ['CHAPA', 'TELEBIRR', 'CASH', 'CARD', 'BANK_TRANSFER'];
 
-const PAYMENT_STATUSES = [
-  'PENDING',
-  'PAID',
-  'FAILED',
-  'CANCELLED',
-  'REFUNDED',
-];
+const PAYMENT_STATUSES = ['PENDING', 'PAID', 'FAILED', 'CANCELLED', 'REFUNDED'];
 
 const paymentSchema = new mongoose.Schema(
   {
@@ -16,18 +10,6 @@ const paymentSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Order',
       required: [true, 'Order reference is required'],
-      index: true,
-    },
-    branchId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Branch',
-      required: [true, 'Branch reference is required'],
-      index: true,
-    },
-    organizationId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Organization',
-      required: [true, 'Organization reference is required'],
       index: true,
     },
     amount: {
@@ -69,7 +51,7 @@ const paymentSchema = new mongoose.Schema(
     processedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
-      default: null, // Staff who confirmed cashier payment
+      default: null,
     },
     paidAt: {
       type: Date,
@@ -87,10 +69,8 @@ const paymentSchema = new mongoose.Schema(
   }
 );
 
-// Compound index for querying payments by branch and date
-paymentSchema.index({ branchId: 1, createdAt: -1 });
-paymentSchema.index({ organizationId: 1, createdAt: -1 });
-paymentSchema.index({ branchId: 1, status: 1, provider: 1 });
+paymentSchema.index({ createdAt: -1 });
+paymentSchema.index({ status: 1, provider: 1 });
 
 const Payment = mongoose.model('Payment', paymentSchema);
 

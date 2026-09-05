@@ -1,6 +1,5 @@
 const jwt = require('jsonwebtoken');
 const config = require('../config/env');
-const { getDefaultOrganizationId, getDefaultBranchId } = require('../config/singleBranch');
 const { User } = require('../modules/users/user.model');
 const CustomerSession = require('../modules/customer-sessions/customer-session.model');
 const logger = require('../config/logger');
@@ -10,8 +9,6 @@ const logger = require('../config/logger');
  * Authenticates either:
  * 1. Staff users with Bearer JWT token
  * 2. Customers with x-session-token / sessionToken
- *
- * In single-branch mode, default org/branch IDs are auto-resolved for staff.
  */
 const socketAuthMiddleware = async (socket, next) => {
   try {
@@ -32,23 +29,10 @@ const socketAuthMiddleware = async (socket, next) => {
         return next(new Error('Authentication failed: Staff user inactive or removed'));
       }
 
-      // Single-branch mode: resolve defaults if user lacks org/branch
-      let organizationId = user.organizationId ? user.organizationId.toString() : null;
-      let branchId = user.branchId ? user.branchId.toString() : null;
-
-      if (!organizationId) {
-        organizationId = await getDefaultOrganizationId();
-      }
-      if (!branchId) {
-        branchId = await getDefaultBranchId();
-      }
-
       socket.user = {
         id: user._id.toString(),
         name: user.name,
         role: user.role,
-        organizationId,
-        branchId,
       };
 
       return next();
@@ -68,8 +52,7 @@ const socketAuthMiddleware = async (socket, next) => {
       socket.customerSession = {
         id: session._id.toString(),
         sessionToken: session.sessionToken,
-        branchId: session.branchId.toString(),
-        tableId: session.tableId.toString(),
+        tableId: session.tableId ? session.tableId.toString() : null,
       };
 
       return next();

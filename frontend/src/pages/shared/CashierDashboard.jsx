@@ -13,24 +13,21 @@ import { DollarSign, CreditCard, Clock, CheckCircle2, RefreshCw, Search } from "
 
 const CashierDashboard = () => {
   const { authUser } = useAuthStore();
-  const branchId = authUser?.branchId;
-  const { orders, getBranchOrders, isLoading, setupSocketListeners, cleanupSocketListeners } = useOrderStore();
-  const { fetchTransactions } = usePaymentStore();
+  const { orders, getOrders, isLoading, setupSocketListeners, cleanupSocketListeners } = useOrderStore();
+  const { transactions, fetchTransactions } = usePaymentStore();
 
   const [statsLoading, setStatsLoading] = useState(true);
-  const [transactions, setTransactions] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [paymentFilter, setPaymentFilter] = useState("ALL");
 
   const loadData = useCallback(async () => {
-    if (!branchId) return;
     setStatsLoading(true);
     await Promise.all([
-      getBranchOrders(branchId, { limit: 50 }),
-      fetchTransactions(branchId).then(setTransactions),
+      getOrders({ limit: 100 }),
+      fetchTransactions({ limit: 100 }),
     ]);
     setStatsLoading(false);
-  }, [branchId, getBranchOrders, fetchTransactions]);
+  }, [getOrders, fetchTransactions]);
 
   useEffect(() => {
     loadData();

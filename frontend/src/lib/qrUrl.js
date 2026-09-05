@@ -26,11 +26,9 @@ export function getCustomerBaseUrl() {
 
 /**
  * Full customer QR landing URL.
- * The route param is the BRANCH id and the QR token rides along as ?t=
- * (`/customer/qr/<branchId>?t=<qrToken>`). Putting the token in the branch
- * slot breaks session creation AND the customer menu fetch.
+ * Uses token-based lookup: `/customer/qr?token=<qrToken>`
  */
-export function buildCustomerQrUrl(branchId, qrToken) {
-  if (!branchId || !qrToken) return "";
-  return `${getCustomerBaseUrl()}/customer/qr/${branchId}?t=${qrToken}`;
+export function buildCustomerQrUrl(qrToken) {
+  if (!qrToken) return "";
+  return `${getCustomerBaseUrl()}/customer/qr?token=${qrToken}`;
 }

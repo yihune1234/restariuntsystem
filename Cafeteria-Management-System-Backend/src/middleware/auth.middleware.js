@@ -1,16 +1,8 @@
 const jwt = require('jsonwebtoken');
 const config = require('../config/env');
-const { getDefaultOrganizationId, getDefaultBranchId } = require('../config/singleBranch');
-const { UnauthorizedError, ForbiddenError } = require('../utils/errors');
+const { UnauthorizedError } = require('../utils/errors');
 const { User } = require('../modules/users/user.model');
-const CustomerSession = require('../modules/customer-sessions/customer-session.model');
 
-/**
- * Authenticate staff user via JWT Bearer token
- *
- * In single-branch mode, if the user lacks an organizationId or branchId,
- * the default values are auto-resolved and injected into the request.
- */
 const authenticateStaff = async (req, res, next) => {
   try {
     let token = null;
@@ -25,21 +17,9 @@ const authenticateStaff = async (req, res, next) => {
 
     const decoded = jwt.verify(token, config.jwt.accessSecret);
 
-    // Verify user exists and is active
     const user = await User.findOne({ _id: decoded.id, isActive: true });
     if (!user) {
       return next(new UnauthorizedError('User belonging to this token no longer exists or is deactivated', 'USER_DEACTIVATED'));
-    }
-
-    let organizationId = user.organizationId ? user.organizationId.toString() : null;
-    let branchId = user.branchId ? user.branchId.toString() : null;
-
-    // Single-branch mode: auto-resolve missing org/branch IDs for all roles
-    if (!organizationId) {
-      organizationId = await getDefaultOrganizationId();
-    }
-    if (!branchId) {
-      branchId = await getDefaultBranchId();
     }
 
     req.user = {
@@ -47,8 +27,6 @@ const authenticateStaff = async (req, res, next) => {
       email: user.email,
       name: user.name,
       role: user.role,
-      organizationId,
-      branchId,
     };
 
     next();
@@ -63,9 +41,6 @@ const authenticateStaff = async (req, res, next) => {
   }
 };
 
-/**
- * Authenticate customer session via x-session-token header
- */
 const authenticateCustomer = async (req, res, next) => {
   try {
     const sessionToken = req.headers['x-session-token'] || req.query.sessionToken;
@@ -74,11 +49,11 @@ const authenticateCustomer = async (req, res, next) => {
       return next(new UnauthorizedError('Customer session token is missing. Please scan a table QR code.', 'MISSING_SESSION_TOKEN'));
     }
 
-    // Lookup session token
+    const CustomerSession = require('../modules/customer-sessions/customer-session.model');
     const session = await CustomerSession.findOne({
       sessionToken,
       isActive: true,
-    }).populate('tableId', 'tableNumber branchId isActive');
+    }).populate('tableId', 'tableNumber isActive');
 
     if (!session) {
       return next(new UnauthorizedError('Invalid or inactive customer session. Please scan QR code again.', 'INVALID_SESSION_TOKEN'));
@@ -93,7 +68,6 @@ const authenticateCustomer = async (req, res, next) => {
     req.customerSession = {
       id: session._id.toString(),
       sessionToken: session.sessionToken,
-      branchId: session.branchId.toString(),
       tableId: session.tableId ? session.tableId._id.toString() : null,
       tableNumber: session.tableId ? session.tableId.tableNumber : null,
     };
@@ -104,9 +78,6 @@ const authenticateCustomer = async (req, res, next) => {
   }
 };
 
-/**
- * Authenticate either staff (via Bearer token) or customer (via x-session-token)
- */
 const authenticateAny = async (req, res, next) => {
   if (req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
     return authenticateStaff(req, res, next);

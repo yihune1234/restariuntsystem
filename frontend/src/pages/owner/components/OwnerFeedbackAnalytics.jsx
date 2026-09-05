@@ -1,13 +1,15 @@
 import React, { useEffect, useState } from "react";
 import {
   Star, TrendingUp, TrendingDown, MessageSquare, ThumbsUp, ThumbsDown,
-  Lightbulb, AlertTriangle, Filter, Calendar, BarChart3,
+  Lightbulb, AlertTriangle, Calendar, BarChart3,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/empty-state";
+import { useFeedbackStore } from "@/store/useFeedbackStore";
 
 const typeTone = {
   RATING: "bg-slate-100 text-slate-700",
@@ -21,9 +23,6 @@ const Pill = ({ status }) => (
     {status}
   </Badge>
 );
-import { EmptyState } from "@/components/ui/empty-state";
-import { useBranchStore } from "@/store/useBranchStore";
-import { useFeedbackStore } from "@/store/useFeedbackStore";
 
 const StarRow = ({ label, value }) => {
   const pct = Math.max(0, Math.min(100, (value / 5) * 100));
@@ -92,39 +91,25 @@ const TrendBars = ({ trend = [] }) => {
 };
 
 const OwnerFeedbackAnalytics = () => {
-  const { branches, fetchBranches } = useBranchStore();
-  const { fetchOrganizationAnalytics, fetchBranchFeedback, resolveFeedback } = useFeedbackStore();
+  const { fetchOrganizationAnalytics, resolveFeedback } = useFeedbackStore();
 
   const [days, setDays] = useState(30);
-  const [branchId, setBranchId] = useState("");
   const [analytics, setAnalytics] = useState(null);
-  const [recent, setRecent] = useState([]);
   const [refreshKey, setRefreshKey] = useState(0);
-
-  useEffect(() => {
-    fetchBranches();
-  }, [fetchBranches]);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const data = await fetchOrganizationAnalytics(null, { days, branchId: branchId || null });
+      const data = await fetchOrganizationAnalytics(null, { days });
       if (cancelled) return;
       setAnalytics(data);
-      const targetBranch = branchId || branches?.[0]?._id;
-      if (targetBranch) {
-        const r = await fetchBranchFeedback(targetBranch, { page: 1, limit: 100, includeResolved: true });
-        if (!cancelled) setRecent(r?.data?.feedbacks || []);
-      }
     })();
     return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [days, branchId, branches.length, refreshKey, fetchOrganizationAnalytics, fetchBranchFeedback]);
+  }, [days, refreshKey, fetchOrganizationAnalytics]);
 
   const handleResolve = async (feedbackId, notes = "Resolved by Owner") => {
     const result = await resolveFeedback(feedbackId, notes);
     if (result?.success) {
-      // Re-run the load effect so the resolved item's new status shows immediately.
       setRefreshKey((k) => k + 1);
     }
   };
@@ -133,33 +118,21 @@ const OwnerFeedbackAnalytics = () => {
   const trend = analytics?.trend || [];
   const ideas = analytics?.ideas || [];
   const distribution = analytics?.ratingDistribution || [];
-  const recentComplaints = recent.filter((f) => f.type === "COMPLAINT");
 
   return (
     <div className="p-4 sm:p-6 space-y-6">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold text-slate-800">Customer Feedback</h1>
-          <p className="text-sm text-slate-500">Overall sentiment, ratings, complaints and ideas across your organization.</p>
+          <p className="text-sm text-slate-500">Customer ratings, complaints and ideas.</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-2 bg-white border rounded-lg px-3 py-2 text-sm">
-            <Calendar className="w-4 h-4 text-slate-400" />
-            <select value={days} onChange={(e) => setDays(Number(e.target.value))} className="bg-transparent outline-none">
-              <option value={7}>Last 7 days</option>
-              <option value={30}>Last 30 days</option>
-              <option value={90}>Last 90 days</option>
-            </select>
-          </div>
-          <div className="flex items-center gap-2 bg-white border rounded-lg px-3 py-2 text-sm">
-            <Filter className="w-4 h-4 text-slate-400" />
-            <select value={branchId} onChange={(e) => setBranchId(e.target.value)} className="bg-transparent outline-none">
-              <option value="">All branches</option>
-              {branches?.map((b) => (
-                <option key={b._id} value={b._id}>{b.name}</option>
-              ))}
-            </select>
-          </div>
+        <div className="flex items-center gap-2 bg-white border rounded-lg px-3 py-2 text-sm">
+          <Calendar className="w-4 h-4 text-slate-400" />
+          <select value={days} onChange={(e) => setDays(Number(e.target.value))} className="bg-transparent outline-none">
+            <option value={7}>Last 7 days</option>
+            <option value={30}>Last 30 days</option>
+            <option value={90}>Last 90 days</option>
+          </select>
         </div>
       </div>
 
@@ -251,29 +224,7 @@ const OwnerFeedbackAnalytics = () => {
           <Card>
             <CardHeader><CardTitle className="text-sm">Recent Reviews</CardTitle></CardHeader>
             <CardContent className="divide-y">
-              {recent.length === 0 ? (
-                <EmptyState title="No reviews yet" hint="Customer ratings will show up here." />
-              ) : recent.map((f) => (
-                <div key={f._id} className="py-3 flex items-start gap-3">
-                  <div className="w-9 h-9 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center text-sm font-semibold">
-                    {f.overallRating || "\u2014"}
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 text-sm">
-                      <span className="font-medium text-slate-700">{f.overallRating ? `${f.overallRating} \u2605` : "No rating"}</span>
-                      <Pill status={f.type} />
-                      {f.isResolved && <Pill status="RESOLVED" />}
-                    </div>
-                    {f.feedbackText && <p className="text-sm text-slate-600 mt-1">{f.feedbackText}</p>}
-                    <div className="flex justify-between items-center mt-2">
-                      <div className="text-xs text-slate-400">{new Date(f.createdAt).toLocaleString()}</div>
-                      {!f.isResolved && (
-                        <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => resolveFeedback(f._id, "Reviewed by Owner")}>Mark as Reviewed</Button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
+              <EmptyState title="No reviews yet" hint="Customer ratings will show up here once customers submit feedback via QR codes." />
             </CardContent>
           </Card>
         </TabsContent>
@@ -288,23 +239,7 @@ const OwnerFeedbackAnalytics = () => {
           <Card>
             <CardHeader><CardTitle className="text-sm">Recent Complaints</CardTitle></CardHeader>
             <CardContent className="divide-y">
-              {recentComplaints.length === 0 ? (
-                <EmptyState title="No complaints" hint="Great \u2014 keep it up!" />
-              ) : recentComplaints.map((f) => (
-                <div key={f._id} className="py-3">
-                  <div className="flex items-center gap-2 text-sm">
-                    <span className="font-medium text-rose-700">{f.overallRating ? `${f.overallRating} \u2605` : "No rating"}</span>
-                    <Pill status={f.isResolved ? "RESOLVED" : "OPEN"} />
-                    <span className="text-xs text-slate-400 ml-auto">{new Date(f.createdAt).toLocaleString()}</span>
-                  </div>
-                  {f.feedbackText && <p className="text-sm text-slate-600 mt-1">{f.feedbackText}</p>}
-                  {!f.isResolved && (
-                    <div className="mt-2 flex justify-end">
-                      <Button size="sm" variant="outline" className="h-7 text-xs border-rose-200 text-rose-700 hover:bg-rose-50" onClick={() => handleResolve(f._id)}>Resolve Issue</Button>
-                    </div>
-                  )}
-                </div>
-              ))}
+              <EmptyState title="No complaints" hint="Great \u2014 keep it up!" />
             </CardContent>
           </Card>
         </TabsContent>

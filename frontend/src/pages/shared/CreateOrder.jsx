@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useMenuStore } from "@/store/useMenuStore";
 import { useOrderStore } from "@/store/useOrderStore";
@@ -7,148 +7,211 @@ import { useTranslation } from "@/i18n";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
-import { Search, Plus, Utensils, Layers, Clock } from "lucide-react";
+import { Search, Plus, Utensils, AlertCircle, RefreshCw } from "lucide-react";
 import CartPanel from "./CartPanel";
-import { usePaymentStore, PAYMENT_METHODS } from "@/store/usePaymentStore";
+import { usePaymentStore } from "@/store/usePaymentStore";
 
-/**
- * Resolve display name from multilingual API fields.
- */
 const getDisplayName = (entity, lang) => {
   if (!entity) return "";
   if (lang === "om" && entity.nameOm) return entity.nameOm;
   if (lang === "am" && entity.nameAm) return entity.nameAm;
   if (lang === "en" && entity.nameEn) return entity.nameEn;
-  return entity.name || entity.nameEn || "";
+  return entity.name || "";
 };
 
-/**
- * "Create Order" page shared by waiter + cashier with proper menu hierarchy:
- * Meal Type → Category → Food Items (available only)
- * 
- * Cashier: Creates order + confirms payment in one step
- * Waiter: Creates order only (payment handled by cashier)
- */
 const CreateOrder = () => {
   const { authUser } = useAuthStore();
-  const branchId = authUser?.branchId?._id || authUser?.branchId;
   const { t, lang } = useTranslation();
-  const isCashier = authUser?.role === "CASHIER";
+  const role = authUser?.role;
+  const canConfirmPayment = role === "CASHIER" || role === "MANAGER" || role === "OWNER";
 
-  const { menu, getFoodItemsByBranch, category, getCategoriesByBranch, mealTypes, getMealPeriodsByBranch, isLoading } = useMenuStore();
+  const menuStore = useMenuStore();
+  const getCategories = menuStore.getCategories;
+  const getFoodItems = menuStore.getFoodItems;
+  const getMealPeriods = menuStore.getMealPeriods;
+
   const { cart, addToCart, removeFromCart, placeOrder, getCartTotal, clearCart } = useOrderStore();
-  const { tables, getTablesByBranch } = useTableStore();
+  const { tables, getTables } = useTableStore();
   const { confirmCashierPayment } = usePaymentStore();
 
-  const [query, setQuery] = useState("");
-  const [selectedMealType, setSelectedMealType] = useState(null);
-  const [selectedCategory, setSelectedCategory] = useState(null);
-  const [tableId, setTableId] = useState("");
-  const [placing, setPlacing] = useState(false);
+  const [categories, setCategories] = useState([]);
+  const [foodItems, setFoodItems] = useState([]);
+  const [catsLoading, setCatsLoading] = useState(true);
+  const [itemsLoading, setItemsLoading] = useState(false);
+  const [catsError, setCatsError] = useState(null);
 
-  // Cashier payment state
+  const [query, setQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState(null);
+  const [mealPeriods, setMealPeriods] = useState([]);
+  const [selectedMealId, setSelectedMealId] = useState("all");
+  const [tableId, setTableId] = useState("");
+  const [isWalkIn, setIsWalkIn] = useState(false);
+  const [walkInPhone, setWalkInPhone] = useState("");
+  const [placing, setPlacing] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("CASH");
   const [amountReceived, setAmountReceived] = useState("");
+  const [sortBy, setSortBy] = useState("name");
 
-  useEffect(() => {
-    if (!branchId) return;
-    getMealPeriodsByBranch(branchId);
-    getTablesByBranch(branchId);
-  }, [branchId, getMealPeriodsByBranch, getTablesByBranch]);
-
-  const filteredCategories = useMemo(() => {
-    if (!selectedMealType) return [];
-    return category.filter(c => (c.mealPeriodId?._id || c.mealPeriodId) === selectedMealType._id);
-  }, [category, selectedMealType]);
-
-  // Auto-select first meal type
-  useEffect(() => {
-    if (mealTypes.length > 0 && !selectedMealType) {
-      setSelectedMealType(mealTypes[0]);
+  const loadCategories = useCallback(async () => {
+    setCatsLoading(true);
+    setCatsError(null);
+    try {
+      const cats = await getCategories({ activeOnly: true });
+      setCategories(cats || []);
+      if (cats?.length > 0 && !selectedCategory) {
+        setSelectedCategory(cats[0]);
+      }
+    } catch (err) {
+      setCatsError(err.message || "Failed to load categories");
+      toast.error("Failed to load categories");
+    } finally {
+      setCatsLoading(false);
     }
-  }, [mealTypes, selectedMealType]);
+  }, [getCategories]);
 
-  useEffect(() => {
-    if (!branchId || !selectedMealType) return;
-    getCategoriesByBranch(branchId, { mealPeriodId: selectedMealType._id });
-    setSelectedCategory(null);
-  }, [branchId, selectedMealType, getCategoriesByBranch]);
-
-  // Auto-select first category
-  useEffect(() => {
-    if (filteredCategories.length > 0 && !selectedCategory) {
-      setSelectedCategory(filteredCategories[0]);
+  const loadFoodItems = useCallback(async (categoryId) => {
+    setItemsLoading(true);
+    try {
+      const items = await getFoodItems({ categoryId: categoryId || undefined });
+      setFoodItems(items || []);
+    } catch (err) {
+      toast.error("Failed to load food items");
+    } finally {
+      setItemsLoading(false);
     }
-  }, [filteredCategories, selectedCategory]);
+  }, [getFoodItems]);
 
   useEffect(() => {
-    if (!branchId || !selectedCategory) return;
-    const timer = setTimeout(
-      () => getFoodItemsByBranch(branchId, { categoryId: selectedCategory._id, availableOnly: true }),
-      250
-    );
-    return () => clearTimeout(timer);
-  }, [branchId, selectedCategory, getFoodItemsByBranch]);
+    getTables();
+  }, [getTables]);
 
-  const visible = useMemo(
-    () => (Array.isArray(menu) ? menu.filter(i => i.isAvailable !== false && i.isActive !== false) : []),
-    [menu]
-  );
+  const loadMealPeriods = useCallback(async () => {
+    const list = await getMealPeriods({ activeOnly: true });
+    setMealPeriods(Array.isArray(list) ? list : []);
+  }, [getMealPeriods]);
 
-  const filteredVisible = useMemo(() => {
-    if (!query) return visible;
-    const q = query.toLowerCase();
-    return visible.filter(i => {
-      const name = getDisplayName(i, lang).toLowerCase();
-      return name.includes(q);
+  useEffect(() => {
+    loadCategories();
+    loadMealPeriods();
+  }, [loadCategories, loadMealPeriods]);
+
+  const meals = useMemo(() => {
+    const opts = (mealPeriods || []).map(mp => ({ id: String(mp._id), label: getDisplayName(mp, lang) || mp.name }));
+    return [{ id: "all", label: "All" }, ...opts];
+  }, [mealPeriods, lang]);
+
+  const visibleCategories = useMemo(() => {
+    if (selectedMealId === "all") return categories;
+    const selectedMeal = (mealPeriods || []).find(mp => String(mp._id) === selectedMealId);
+    if (selectedMeal && (selectedMeal.name === "ALL_DAY" || (selectedMeal.nameEn || "").toLowerCase().includes("all-day"))) {
+      return categories;
+    }
+    return categories.filter(c => {
+      const ids = (c.mealPeriodIds || []).map(String);
+      return ids.length === 0 || ids.includes(selectedMealId);
     });
-  }, [visible, query, lang]);
+  }, [categories, selectedMealId, mealPeriods]);
 
-  // Waiter places order (source: WAITER) - goes to cashier queue for payment
+  useEffect(() => {
+    if (visibleCategories.length > 0 && !visibleCategories.some(c => c._id === selectedCategory?._id)) {
+      setSelectedCategory(visibleCategories[0]);
+    } else if (visibleCategories.length === 0) {
+      setSelectedCategory(null);
+    }
+  }, [visibleCategories, selectedCategory]);
+
+  useEffect(() => {
+    if (selectedCategory) {
+      loadFoodItems(selectedCategory._id);
+    } else {
+      loadFoodItems();
+    }
+  }, [selectedCategory, loadFoodItems]);
+
+  const filteredItems = useMemo(() => {
+    let items = foodItems;
+    if (selectedMealId !== "all") {
+      const selectedMeal = (mealPeriods || []).find(mp => String(mp._id) === selectedMealId);
+      const isAllDay = selectedMeal && (selectedMeal.name === "ALL_DAY" || (selectedMeal.nameEn || "").toLowerCase().includes("all-day"));
+      if (!isAllDay) {
+        items = items.filter(i => {
+          const itemMpIds = (i.mealPeriodIds || []).map(id => String(id?._id || id));
+          if (itemMpIds.length === 0) return true;
+          return itemMpIds.includes(selectedMealId);
+        });
+      }
+    }
+    if (selectedCategory) {
+      items = items.filter(i => String(i.categoryId) === String(selectedCategory._id));
+    }
+    if (query) {
+      const q = query.toLowerCase();
+      items = items.filter(i => getDisplayName(i, lang).toLowerCase().includes(q));
+    }
+    if (sortBy === "name") {
+      items = [...items].sort((a, b) => (getDisplayName(a, lang) || a.name).localeCompare(getDisplayName(b, lang) || b.name));
+    } else if (sortBy === "price") {
+      items = [...items].sort((a, b) => (a.price || 0) - (b.price || 0));
+    } else if (sortBy === "category") {
+      items = [...items].sort((a, b) => String(a.categoryId).localeCompare(String(b.categoryId)));
+    }
+    return items;
+  }, [foodItems, selectedCategory, query, lang, sortBy, selectedMealId, mealPeriods]);
+
   const handlePlace = async () => {
     if (cart.length === 0) return toast.error("Cart is empty");
-    if (!branchId) return toast.error("No branch assigned to your account");
-    if (!tableId) return toast.error("Please select a table");
+    if (!isWalkIn && !tableId) return toast.error("Please select a table");
+    if (isWalkIn && !walkInPhone.trim()) return toast.error("Enter customer phone number");
     setPlacing(true);
     const items = cart.map(c => ({ foodItemId: c.foodItemId, quantity: c.quantity }));
-    const source = isCashier ? "CASHIER" : "WAITER";
-    const res = await placeOrder({ branchId, tableId, items, source });
+    const orderData = {
+      tableId: isWalkIn ? null : tableId,
+      items,
+      source: "CASHIER",
+      customerName: isWalkIn ? walkInPhone.trim() : null,
+    };
+    const res = await placeOrder(orderData);
     setPlacing(false);
     if (res.success) {
       toast.success(`Placed • Code: ${res.order.securityCode}`);
       clearCart();
       setTableId("");
+      setWalkInPhone("");
+      setIsWalkIn(false);
     }
   };
 
-  // Cashier confirms payment + places order in one step
   const handleConfirmPayment = async () => {
     if (cart.length === 0) return toast.error("Cart is empty");
-    if (!branchId) return toast.error("No branch assigned to your account");
-    if (!tableId) return toast.error("Please select a table");
+    if (!isWalkIn && !tableId) return toast.error("Please select a table");
+    if (isWalkIn && !walkInPhone.trim()) return toast.error("Enter customer phone number");
     if (!paymentMethod) return toast.error("Select a payment method");
     if (paymentMethod === "CASH" && (!amountReceived || Number(amountReceived) < getCartTotal())) {
       return toast.error("Enter valid amount received");
     }
     setPlacing(true);
     try {
-      // 1. Create order first
       const items = cart.map(c => ({ foodItemId: c.foodItemId, quantity: c.quantity }));
-      const orderRes = await placeOrder({ branchId, tableId, items, source: "CASHIER" });
+      const orderRes = await placeOrder({
+        tableId: isWalkIn ? null : tableId,
+        items,
+        source: "CASHIER",
+        customerName: isWalkIn ? walkInPhone.trim() : null,
+      });
       if (!orderRes.success) {
         setPlacing(false);
         return;
       }
       const order = orderRes.order;
-      // 2. Confirm payment
       const paymentRes = await confirmCashierPayment(order._id, { paymentMethod });
       if (paymentRes.success) {
-        toast.success(`Order confirmed & sent to kitchen • Code: ${order.securityCode}`);
+        toast.success(`Paid & Sent to Kitchen • Code: ${order.securityCode}`);
         clearCart();
         setTableId("");
+        setWalkInPhone("");
+        setIsWalkIn(false);
         setAmountReceived("");
       } else {
         toast.error(paymentRes.message || "Payment failed");
@@ -160,14 +223,6 @@ const CreateOrder = () => {
     }
   };
 
-  if (!branchId) {
-    return (
-      <div className="p-6">
-        <p className="text-muted-foreground">You are not assigned to a branch yet. Ask your manager.</p>
-      </div>
-    );
-  }
-
   return (
     <div className="p-4 lg:p-6 grid lg:grid-cols-[1fr_340px] gap-5">
       <div className="w-full space-y-4">
@@ -176,76 +231,126 @@ const CreateOrder = () => {
           <Input placeholder="Search items..." value={query} onChange={(e) => setQuery(e.target.value)} />
         </div>
 
-        {/* Level 1: Meal Types */}
-        <div className="space-y-2">
-          <h3 className="text-sm font-semibold flex items-center gap-2">
-            <Layers className="size-4" /> {t('manager.mealTypes')}
-          </h3>
-          <div className="flex gap-1 border-b border-gray-200 dark:border-gray-700 mb-3 overflow-x-auto scrollbar-hide">
-            {mealTypes.map(m => (
-              <button
-                key={m._id}
-                onClick={() => setSelectedMealType(selectedMealType?._id === m._id ? null : m)}
-                className={`px-4 py-2 text-sm font-medium border-b-2 transition-all duration-200 whitespace-nowrap flex-none ${
-                  selectedMealType?._id === m._id
-                    ? "border-primary text-primary"
-                    : "border-transparent text-muted-foreground hover:text-foreground hover:border-gray-300 dark:hover:border-gray-600"
-                }`}
-              >
-                {getDisplayName(m, lang) || m.name}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Level 2: Categories */}
-        {selectedMealType && (
-          <div className="space-y-2">
-            <h3 className="text-sm font-semibold flex items-center gap-2">
-              <Layers className="size-4" /> {t('manager.categories')}
-            </h3>
-            <div className="flex gap-1 border-b border-gray-200 dark:border-gray-700 mb-3 overflow-x-auto scrollbar-hide">
-              {filteredCategories.map(c => (
-                <button
-                  key={c._id}
-                  onClick={() => setSelectedCategory(selectedCategory?._id === c._id ? null : c)}
-                  className={`px-4 py-2 text-sm font-medium border-b-2 transition-all duration-200 whitespace-nowrap flex-none ${
-                    selectedCategory?._id === c._id
-                      ? "border-primary text-primary"
-                      : "border-transparent text-muted-foreground hover:text-foreground hover:border-gray-300 dark:hover:border-gray-600"
-                  }`}
-                >
-                  {getDisplayName(c, lang) || c.name}
-                </button>
-              ))}
-            </div>
-          </div>
+        {catsError && (
+          <Card className="border-red-200 bg-red-50">
+            <CardContent className="p-4 flex items-center gap-3">
+              <AlertCircle className="text-red-500" />
+              <p className="text-sm text-red-700">{catsError}</p>
+              <Button size="sm" variant="outline" onClick={loadCategories}>
+                <RefreshCw className="size-3 mr-1" /> Retry
+              </Button>
+            </CardContent>
+          </Card>
         )}
 
-        {/* Level 3: Food Items */}
-        {selectedCategory && (
+        {catsLoading ? (
           <div className="space-y-2">
-            <h3 className="text-sm font-semibold flex items-center gap-2">
-              <Layers className="size-4" /> {t('manager.foodItems')}
-            </h3>
-            {isLoading ? (
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                {[...Array(6)].map((_, i) => (
-                  <Card key={i} className="h-28"><CardContent className="p-4"><Skeleton className="h-6 w-3/4 mb-2" /><Skeleton className="h-4 w-1/2" /></CardContent></Card>
-                ))}
+            <Skeleton className="h-6 w-32" />
+            <div className="flex gap-2">
+              {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-9 w-24" />)}
+            </div>
+          </div>
+        ) : (
+          <>
+            {meals.length > 1 && (
+              <div className="space-y-2">
+                <h3 className="text-sm font-semibold">Meal Types</h3>
+                <div className="flex gap-2 overflow-x-auto">
+                  {meals.map(m => (
+                    <button
+                      key={m.id}
+                      onClick={() => setSelectedMealId(m.id)}
+                      className={`px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap border transition-all ${
+                        selectedMealId === m.id
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-background text-muted-foreground border-gray-200 dark:border-gray-700 hover:bg-muted"
+                      }`}
+                    >
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
               </div>
-            ) : filteredVisible.length === 0 ? (
-              <p className="text-muted-foreground">No food items in this category yet.</p>
-            ) : (
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                {filteredVisible.map(item => (
-                  <Card key={item._id}>
+            )}
+
+            {visibleCategories.length > 0 && (
+              <div className="space-y-2">
+                <h3 className="text-sm font-semibold">{t('manager.categories')}</h3>
+                <div className="flex gap-1 border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
+                  {visibleCategories.map(c => (
+                    <button
+                      key={c._id}
+                      onClick={() => setSelectedCategory(c._id === selectedCategory?._id ? null : c)}
+                      className={`px-4 py-2 text-sm font-medium border-b-2 transition-all whitespace-nowrap ${
+                        selectedCategory?._id === c._id
+                          ? "border-primary text-primary"
+                          : "border-transparent text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      {getDisplayName(c, lang) || c.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+        <div className="space-y-2">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <h3 className="text-sm font-semibold">{t('manager.foodItems')} ({filteredItems.length})</h3>
+            <div className="flex items-center gap-2">
+              <select
+                value={sortBy}
+                onChange={e => setSortBy(e.target.value)}
+                className="h-8 text-xs rounded-md border border-input bg-background px-2 focus:outline-none focus:ring-2 focus:ring-ring"
+                title="Sort items"
+              >
+                <option value="name">Sort: Name (A–Z)</option>
+                <option value="price">Sort: Price (Low–High)</option>
+                <option value="category">Sort: Category</option>
+              </select>
+            </div>
+          </div>
+          {itemsLoading ? (
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              {[...Array(6)].map((_, i) => (
+                <Card key={i}><CardContent className="p-4"><Skeleton className="h-16 w-full mb-2" /><Skeleton className="h-4 w-3/4 mb-1" /><Skeleton className="h-4 w-1/2" /></CardContent></Card>
+              ))}
+            </div>
+          ) : filteredItems.length === 0 ? (
+            <Card>
+              <CardContent className="p-8 text-center">
+                <Utensils className="size-8 mx-auto mb-2 text-muted-foreground opacity-50" />
+                <p className="text-muted-foreground">No food items found.</p>
+                {categories.length === 0 && !catsLoading && (
+                  <p className="text-xs text-muted-foreground mt-1">No categories available. Add categories from the Manager menu.</p>
+                )}
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              {filteredItems.map(item => {
+                const isSoldOut = item.isAvailable === false;
+                const isHidden = item.isHidden === true;
+                return (
+                  <Card key={item._id} className={isSoldOut || isHidden ? "opacity-60" : ""}>
                     <CardContent className="p-3">
-                      <div className="h-16 mb-2 rounded bg-muted flex items-center justify-center overflow-hidden">
+                      <div className="h-16 mb-2 rounded bg-muted flex items-center justify-center overflow-hidden relative">
                         {item.imageUrl ? (
                           <img src={item.imageUrl} className="h-full w-full object-cover" alt={item.name} />
                         ) : (
                           <Utensils className="text-muted-foreground" />
+                        )}
+                        {isSoldOut && (
+                          <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                            <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">Sold Out</span>
+                          </div>
+                        )}
+                        {isHidden && !isSoldOut && (
+                          <div className="absolute top-1 right-1">
+                            <span className="bg-gray-700 text-white text-[9px] font-bold px-1.5 py-0.5 rounded">Hidden</span>
+                          </div>
                         )}
                       </div>
                       <p className="text-sm font-semibold line-clamp-1">{getDisplayName(item, lang) || item.name}</p>
@@ -255,24 +360,18 @@ const CreateOrder = () => {
                       <Button
                         size="sm"
                         className="w-full mt-2"
+                        disabled={isSoldOut || isHidden}
                         onClick={() => addToCart({ ...item, unitPrice: item.price, foodName: item.name })}
                       >
-                        <Plus className="size-3" /> Add
+                        <Plus className="size-3" /> {isSoldOut ? "Sold Out" : "Add"}
                       </Button>
                     </CardContent>
                   </Card>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {!selectedMealType && (
-          <div className="text-center py-8 text-muted-foreground">
-            <Layers className="size-8 mx-auto mb-2 opacity-50" />
-            <p>{t('manager.selectMealType')}</p>
-          </div>
-        )}
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
 
       <CartPanel
@@ -285,12 +384,16 @@ const CreateOrder = () => {
         total={getCartTotal()}
         placing={placing}
         handlePlace={handlePlace}
-        isCashier={isCashier}
+        isCashier={canConfirmPayment}
         paymentMethod={paymentMethod}
         setPaymentMethod={setPaymentMethod}
         amountReceived={amountReceived}
         setAmountReceived={setAmountReceived}
         handleConfirmPayment={handleConfirmPayment}
+        isWalkIn={isWalkIn}
+        setIsWalkIn={setIsWalkIn}
+        walkInPhone={walkInPhone}
+        setWalkInPhone={setWalkInPhone}
       />
     </div>
   );

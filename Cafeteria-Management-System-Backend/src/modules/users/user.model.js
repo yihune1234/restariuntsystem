@@ -1,25 +1,10 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
-const USER_ROLES = ['OWNER', 'MANAGER', 'CASHIER', 'KITCHEN', 'WAITER'];
+const USER_ROLES = ['OWNER', 'MANAGER', 'CASHIER', 'KITCHEN'];
 
 const userSchema = new mongoose.Schema(
   {
-    organizationId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Organization',
-      required: false,
-      index: true,
-    },
-    branchId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Branch',
-      required: function () {
-        // OWNER doesn't strictly need to be tied to a single branch; all other staff do
-        return this.role !== 'OWNER';
-      },
-      index: true,
-    },
     name: {
       type: String,
       required: [true, 'User name is required'],
@@ -44,7 +29,7 @@ const userSchema = new mongoose.Schema(
     passwordHash: {
       type: String,
       required: [true, 'Password is required'],
-      select: false, // Do not return password in queries by default
+      select: false,
     },
     role: {
       type: String,
@@ -81,11 +66,8 @@ const userSchema = new mongoose.Schema(
   }
 );
 
-// Compound index for fast querying active users within a branch
-userSchema.index({ branchId: 1, role: 1, isActive: 1 });
-userSchema.index({ organizationId: 1, email: 1 });
+userSchema.index({ role: 1, isActive: 1 });
 
-// Password hashing pre-save hook
 userSchema.pre('save', async function (next) {
   if (!this.isModified('passwordHash')) return next();
   const salt = await bcrypt.genSalt(12);
@@ -93,7 +75,6 @@ userSchema.pre('save', async function (next) {
   next();
 });
 
-// Compare password method
 userSchema.methods.comparePassword = async function (candidatePassword) {
   return bcrypt.compare(candidatePassword, this.passwordHash);
 };

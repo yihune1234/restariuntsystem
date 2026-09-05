@@ -110,7 +110,7 @@ const ComplaintCard = ({ complaint, onUpdateStatus }) => {
   );
 };
 
-const ManagerComplaints = ({ branchId }) => {
+const ManagerComplaints = () => {
   const {
     feedbacks,
     stats,
@@ -164,13 +164,10 @@ const ManagerComplaints = ({ branchId }) => {
     };
   };
 
-  // Load real feedback whenever the branch changes.
+  // Load feedback
   useEffect(() => {
-    if (branchId) {
-      setBranchId(branchId);
-      fetchBranchFeedback(branchId, { includeResolved: true, limit: 100 });
-    }
-  }, [branchId, fetchBranchFeedback, setBranchId]);
+    fetchBranchFeedback({ includeResolved: true, limit: 100 });
+  }, [fetchBranchFeedback]);
 
   const complaints = useMemo(
     () => feedbacks.map(toComplaint),

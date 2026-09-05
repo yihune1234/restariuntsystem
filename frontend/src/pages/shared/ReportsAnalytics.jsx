@@ -1,112 +1,109 @@
 import React, { useEffect, useState } from "react";
-import { useAuthStore } from "@/store/useAuthStore";
 import { useReportStore } from "@/store/useReportStore";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { EmptyState } from "@/components/ui/empty-state";
-import { DollarSign, ShoppingCart, FileBarChart, Clock, Truck } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { useTranslation } from "@/i18n";
+import {
+  DollarSign,
+  ShoppingCart,
+  FileBarChart,
+  Clock,
+  TrendingUp,
+  CreditCard,
+  Utensils,
+} from "lucide-react";
 
-/**
- * Sales reports & analytics (manager/owner). Backed by the report endpoints.
- *  - GET /branches/:branchId/reports/sales
- *  - GET /branches/:branchId/reports/orders
- *  - GET /branches/:branchId/reports/payments
- *  - GET /branches/:branchId/reports/food
- *  - GET /branches/:branchId/reports/operations
- *  - GET /branches/:branchId/reports/inventory
- */
 const ReportsAnalytics = () => {
-  const { authUser } = useAuthStore();
-  const branchId = authUser?.branchId;
-  const { sales, food, operations, inventory, isLoading, error } = useReportStore();
+  const { sales, orders, payments, food, isLoading, fetchSalesReport, fetchOrdersReport, fetchPaymentsReport, fetchFoodReport } = useReportStore();
   const { t } = useTranslation();
-  const [period, setPeriod] = useState("daily"); // daily, weekly, monthly, custom
+  const [period, setPeriod] = useState("daily");
   const [startDate, setStartDate] = useState(() => {
-    const d = new Date(); d.setDate(d.getDate() - 7);
+    const d = new Date();
+    d.setDate(d.getDate() - 7);
     return d.toISOString().slice(0, 10);
   });
   const [endDate, setEndDate] = useState(() => new Date().toISOString().slice(0, 10));
 
-  // Compute period dates based on selection
-  const periodDates = {
-    daily: {
-      start: new Date(new Date().setHours(0, 0, 0, 0)),
-      end: new Date(),
-    },
-    weekly: {
-      start: new Date(new Date().setDate(new Date().getDate() - 7)),
-      end: new Date(),
-    },
-    monthly: {
-      start: new Date(new Date().setDate(1)),
-      end: new Date(),
-    },
-    custom: {
-      start: startDate,
-      end: endDate,
-    },
+  const loadReports = async () => {
+    const params = { startDate, endDate };
+    await Promise.all([
+      fetchSalesReport(params),
+      fetchOrdersReport(params),
+      fetchPaymentsReport(params),
+      fetchFoodReport(params),
+    ]);
   };
 
   useEffect(() => {
-    if (!branchId) return;
-    const { start, end } = periodDates[period];
-    useReportStore.getState().fetchReportPeriod(branchId, { startDate: start.toISOString().slice(0, 10), endDate: end.toISOString().slice(0, 10) });
-  }, [branchId, period, useReportStore.getState().fetchReportPeriod]);
+    loadReports();
+  }, []);
 
-  if (!branchId) {
-    return (
-      <div className="p-6">
-        <p className="text-muted-foreground">You are not assigned to a branch yet.</p>
-      </div>
-    );
-  }
+  const handlePeriodChange = (p) => {
+    setPeriod(p);
+    if (p !== "custom") {
+      const end = new Date();
+      let start = new Date();
+      if (p === "daily") start = new Date(end.setHours(0, 0, 0, 0));
+      else if (p === "weekly") { start = new Date(); start.setDate(start.getDate() - 7); }
+      else if (p === "monthly") { start = new Date(); start.setDate(1); }
+      setStartDate(start.toISOString().slice(0, 10));
+      setEndDate(new Date().toISOString().slice(0, 10));
+    }
+  };
+
+  const handleApply = () => {
+    setPeriod("custom");
+    loadReports();
+  };
 
   const totalRevenue = sales?.summary?.totalRevenue || 0;
   const totalOrders = sales?.summary?.paidOrderCount || 0;
   const totalTax = sales?.summary?.totalTax || 0;
   const totalService = sales?.summary?.totalServiceCharge || 0;
-  const avgPrep = operations?.operations?.avgPrepTimeMinutes || 0;
 
-  // Inventory summary
-  const totalStockItems = inventory?.stockItems?.length || 0;
-  const lowStockItems = inventory?.stockItems?.filter((i) => i.currentStatus === 'Low Stock').length || 0;
-  const outOfStockItems = inventory?.stockItems?.filter((i) => i.currentStatus === 'Out of Stock').length || 0;
-  const totalConsumed = inventory?.stockItems?.reduce((sum, i) => sum + (i.stockConsumed || 0), 0) || 0;
-  const totalWastage = inventory?.stockItems?.reduce((sum, i) => sum + (i.wastage || 0), 0) || 0;
+  const cashRevenue = payments?.summary?.cashTotal || 0;
+  const cardRevenue = payments?.summary?.cardTotal || 0;
+  const digitalRevenue = payments?.summary?.digitalTotal || 0;
+
+  const topFoods = food?.topItems?.slice(0, 5) || [];
 
   return (
     <div className="p-4 lg:p-6 space-y-5">
-      <div className="flex items-center justify-between flex-wrap gap-2">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="text-xl font-bold">Reports & Analytics</h1>
-        
-        {/* Period selector */}
-        <div className="flex items-center gap-2">
-          <Input
-            placeholder="Daily"
-            value={period === "daily" ? "Daily" : period === "weekly" ? "Weekly" : period === "monthly" ? "Monthly" : "Custom"}
-            onChange={(e) => setPeriod(e.target.value === "Custom" ? "custom" : e.target.value)}
-            className="h-9 px-2 border rounded-md text-sm bg-background"
-          />
-          
-          {period === 'custom' ? (
+
+        <div className="flex items-center gap-2 flex-wrap">
+          {["daily", "weekly", "monthly", "custom"].map((p) => (
+            <Badge
+              key={p}
+              variant={period === p ? "default" : "outline"}
+              className="cursor-pointer capitalize"
+              onClick={() => p !== "custom" ? handlePeriodChange(p) : setPeriod("custom")}
+            >
+              {p}
+            </Badge>
+          ))}
+          {period === "custom" && (
             <>
               <Input
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="h-9 px-2 border rounded-md text-sm bg-background w-48"
+                className="h-8 w-36 text-sm"
               />
-              <span className="text-muted-foreground mx-2">to</span>
+              <span className="text-muted-foreground text-sm">to</span>
               <Input
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="h-9 px-2 border rounded-md text-sm bg-background w-48"
+                className="h-8 w-36 text-sm"
               />
+              <Button size="sm" onClick={handleApply}>Apply</Button>
             </>
-          ) : null}
+          )}
         </div>
       </div>
 
@@ -116,12 +113,11 @@ const ReportsAnalytics = () => {
         </div>
       ) : (
         <>
-          {/* Summary Cards Row */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
-                  <DollarSign className="size-5 text-primary" />
+                  <DollarSign className="size-5 text-green-600" />
                   <div>
                     <p className="text-xs text-muted-foreground">Revenue</p>
                     <p className="text-lg font-bold">{totalRevenue.toLocaleString()} ETB</p>
@@ -132,7 +128,7 @@ const ReportsAnalytics = () => {
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
-                  <ShoppingCart className="size-5 text-primary" />
+                  <ShoppingCart className="size-5 text-blue-600" />
                   <div>
                     <p className="text-xs text-muted-foreground">Orders</p>
                     <p className="text-lg font-bold">{totalOrders}</p>
@@ -143,7 +139,7 @@ const ReportsAnalytics = () => {
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
-                  <FileBarChart className="size-5 text-primary" />
+                  <FileBarChart className="size-5 text-purple-600" />
                   <div>
                     <p className="text-xs text-muted-foreground">Tax</p>
                     <p className="text-lg font-bold">{totalTax.toLocaleString()} ETB</p>
@@ -154,65 +150,81 @@ const ReportsAnalytics = () => {
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
-                  <Truck className="size-5 text-primary" />
+                  <TrendingUp className="size-5 text-orange-600" />
                   <div>
-                    <p className="text-xs text-muted-foreground">Kitchen</p>
-                    <p className="text-lg font-bold">{Math.round(avgPrep)} min</p>
+                    <p className="text-xs text-muted-foreground">Service</p>
+                    <p className="text-lg font-bold">{totalService.toLocaleString()} ETB</p>
                   </div>
                 </div>
               </CardContent>
             </Card>
           </div>
 
-          {/* Reports Tabs */}
           <div className="grid md:grid-cols-2 gap-4">
-            {/* Sales & Orders */}
             <Card>
-              <CardHeader><CardTitle>Sales</CardTitle></CardHeader>
-              <CardContent className="pt-0 space-y-1 text-sm">
-                <div className="flex items-center justify-between">
-                  <span>Completed</span>
-                  <span>{totalOrders}</span>
+              <CardHeader><CardTitle>Payment Methods</CardTitle></CardHeader>
+              <CardContent className="pt-0 space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <div className="flex items-center gap-2"><DollarSign className="size-4 text-green-600" /> Cash</div>
+                  <span className="font-bold">{cashRevenue.toLocaleString()} ETB</span>
                 </div>
-                <div className="mt-2 text-sm text-muted-foreground">
-                  {t('total_revenue') || 'Total Revenue'}: {totalRevenue.toLocaleString()} ETB
+                <div className="flex items-center justify-between text-sm">
+                  <div className="flex items-center gap-2"><CreditCard className="size-4 text-blue-600" /> Card</div>
+                  <span className="font-bold">{cardRevenue.toLocaleString()} ETB</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <div className="flex items-center gap-2"><Utensils className="size-4 text-purple-600" /> Digital</div>
+                  <span className="font-bold">{digitalRevenue.toLocaleString()} ETB</span>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Food / Inventory */}
             <Card>
-              <CardHeader><CardTitle>Inventory</CardTitle></CardHeader>
+              <CardHeader><CardTitle>Top Selling Items</CardTitle></CardHeader>
+              <CardContent className="pt-0 space-y-1">
+                {topFoods.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No data available</p>
+                ) : (
+                  topFoods.map((item, i) => (
+                    <div key={i} className="flex items-center justify-between text-sm">
+                      <span className="truncate">{item.name || item.foodItemId}</span>
+                      <span className="font-medium">{item.quantitySold || item.count || 0} sold</span>
+                    </div>
+                  ))
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader><CardTitle>Order Summary</CardTitle></CardHeader>
               <CardContent className="pt-0 space-y-1 text-sm">
                 <div className="flex items-center justify-between">
-                  <span>Stock Items</span>
-                  <span>{totalStockItems}</span>
+                  <span className="text-muted-foreground">Completed</span>
+                  <span className="font-medium">{orders?.summary?.completedOrders || 0}</span>
                 </div>
-                <div className="mt-2 text-sm text-muted-foreground">
-                  {t('low_stock') || 'Low Stock'}: {lowStockItems}{' '}{t('items') || 'items'}
-                  {outOfStockItems > 0 ? `, ${t('out_of_stock') || 'Out of Stock'}: ${outOfStockItems}` : ''}
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Cancelled</span>
+                  <span className="font-medium">{orders?.summary?.cancelledOrders || 0}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Avg Order Value</span>
+                  <span className="font-medium">
+                    {totalOrders > 0 ? (totalRevenue / totalOrders).toLocaleString() : 0} ETB
+                  </span>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Payments */}
             <Card>
-              <CardHeader><CardTitle>Payments</CardTitle></CardHeader>
-              <CardContent className="pt-0 space-y-1 text-sm">
-                <EmptyState title={t('no_data') || 'No data'} />
-              </CardContent>
-            </Card>
-
-            {/* Operations */}
-            <Card>
-              <CardHeader><CardTitle>Kitchen Operations</CardTitle></CardHeader>
+              <CardHeader><CardTitle>Date Range</CardTitle></CardHeader>
               <CardContent className="pt-0 space-y-1 text-sm">
                 <div className="flex items-center justify-between">
-                  <span>Avg Prep Time</span>
-                  <span>{Number(avgPrep).toFixed(1)} min</span>
+                  <span className="text-muted-foreground">From</span>
+                  <span className="font-medium">{startDate}</span>
                 </div>
-                <div className="mt-2 text-sm text-muted-foreground">
-                  {t('completed_orders') || 'Completed Orders'}: {operations?.operations?.completedOrdersAnalyzed || 0}
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">To</span>
+                  <span className="font-medium">{endDate}</span>
                 </div>
               </CardContent>
             </Card>

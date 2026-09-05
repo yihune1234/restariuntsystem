@@ -1,6 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
 import { useReportStore } from "@/store/useReportStore";
-import { useBranchStore } from "@/store/useBranchStore";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -9,12 +8,10 @@ import {
   Package,
   AlertTriangle,
   CheckCircle,
-  TrendingUp,
   TrendingDown,
   DollarSign,
   Boxes,
   RefreshCw,
-  Trash2,
   History,
 } from "lucide-react";
 
@@ -25,15 +22,12 @@ const STATUS_CONFIG = {
 };
 
 const OwnerInventoryOverview = () => {
-  const { organizationInventory: ownerInventory, fetchOrganizationInventoryOverview, comparison, fetchBranchComparisonReport, isLoading } = useReportStore();
-  const { branches, fetchOrganizations } = useBranchStore();
-  const [selectedBranch, setSelectedBranch] = useState("all");
+  const { organizationInventory: ownerInventory, fetchOrganizationInventoryOverview, isLoading } = useReportStore();
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     fetchOrganizationInventoryOverview();
-    fetchBranchComparisonReport();
-    fetchOrganizations();
-  }, [fetchOrganizationInventoryOverview, fetchBranchComparisonReport, fetchOrganizations]);
+  }, [fetchOrganizationInventoryOverview]);
 
   const stockItems = ownerInventory?.stockItems || [];
 
@@ -51,54 +45,11 @@ const OwnerInventoryOverview = () => {
     return { totalItems, inStock, lowStock, outOfStock, totalValue };
   }, [stockItems]);
 
-  const branchStats = useMemo(() => {
-    const map = {};
-    stockItems.forEach((item) => {
-      const branchId = item.branchId;
-      if (!map[branchId]) {
-        map[branchId] = {
-          items: 0,
-          inStock: 0,
-          lowStock: 0,
-          outOfStock: 0,
-          value: 0,
-        };
-      }
-      map[branchId].items++;
-      if (item.currentStatus === "In Stock") map[branchId].inStock++;
-      else if (item.currentStatus === "Low Stock") map[branchId].lowStock++;
-      else if (item.currentStatus === "Out of Stock") map[branchId].outOfStock++;
-
-      const qty = item.currentStock || 0;
-      const unitCost = item.unitCost || 100;
-      map[branchId].value += qty * unitCost;
-    });
-    return map;
-  }, [stockItems]);
-
-  const branchNameMap = useMemo(() => {
-    const map = {};
-    (branches || []).forEach((b) => {
-      map[b._id] = b.name || b.branchId?.name || "Branch";
-    });
-    return map;
-  }, [branches]);
-
-  const filteredItems = useMemo(() => {
-    if (selectedBranch === "all") return stockItems;
-    return stockItems.filter((item) => item.branchId === selectedBranch);
-  }, [stockItems, selectedBranch]);
-
-  const uniqueBranches = useMemo(() => {
-    const ids = [...new Set(stockItems.map((i) => i.branchId).filter(Boolean))];
-    return ids;
-  }, [stockItems]);
-
   if (isLoading && stockItems.length === 0) {
     return (
       <div className="p-4 lg:p-6 space-y-4">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-24" />)}
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+          {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-24" />)}
         </div>
         <Skeleton className="h-64" />
       </div>
@@ -107,15 +58,22 @@ const OwnerInventoryOverview = () => {
 
   return (
     <div className="p-4 lg:p-6 space-y-4">
-      <div>
-        <h1 className="text-xl font-bold flex items-center gap-2">
-          <Boxes className="size-5" />
-          Inventory Overview
-        </h1>
-        <p className="text-sm text-muted-foreground">Organization-wide inventory status and costs</p>
+      <div className="flex items-start justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="text-xl font-bold flex items-center gap-2">
+            <Boxes className="size-5" />
+            Inventory Overview
+          </h1>
+          <p className="text-sm text-muted-foreground">Current stock status and costs</p>
+        </div>
+        <button
+          onClick={() => { fetchOrganizationInventoryOverview(); setRefreshKey(k => k + 1); }}
+          className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+        >
+          <RefreshCw className="size-4" /> Refresh
+        </button>
       </div>
 
-      {/* Stats Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
         <Card>
           <CardContent className="p-3">
@@ -188,58 +146,7 @@ const OwnerInventoryOverview = () => {
         </Card>
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-4">
-        {/* Branch Comparison */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <TrendingUp className="size-4" />
-              Branch Performance
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {uniqueBranches.length === 0 ? (
-              <EmptyState title="No branch data" icon={Package} />
-            ) : (
-              <div className="space-y-3">
-                {uniqueBranches.map((branchId) => {
-                  const branchData = branchStats[branchId] || {};
-                  const branchName = branchNameMap[branchId] || branchId?.slice(-6) || "Unknown";
-                  const healthPercent = branchData.items > 0
-                    ? Math.round((branchData.inStock / branchData.items) * 100)
-                    : 0;
-
-                  return (
-                    <div
-                      key={branchId}
-                      className="p-3 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
-                      onClick={() => setSelectedBranch(branchId === selectedBranch ? "all" : branchId)}
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="font-medium text-sm">{branchName}</span>
-                        <Badge variant={branchData.outOfStock > 0 ? "destructive" : "outline"}>
-                          {branchData.outOfStock > 0 ? `${branchData.outOfStock} Out` : "OK"}
-                        </Badge>
-                      </div>
-                      <div className="w-full bg-muted rounded-full h-2 mb-2">
-                        <div
-                          className={`h-2 rounded-full ${healthPercent >= 80 ? "bg-green-500" : healthPercent >= 50 ? "bg-yellow-500" : "bg-red-500"}`}
-                          style={{ width: `${healthPercent}%` }}
-                        />
-                      </div>
-                      <div className="flex items-center justify-between text-xs text-muted-foreground">
-                        <span>{branchData.inStock || 0} / {branchData.items || 0} items</span>
-                        <span className="font-medium">{(branchData.value || 0).toLocaleString()} ETB</span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Low Stock Alert */}
+      <div className="grid lg:grid-cols-2 gap-4">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center gap-2">
@@ -263,7 +170,7 @@ const OwnerInventoryOverview = () => {
                       <div>
                         <p className="text-sm font-medium truncate">{item.foodName || "Unknown"}</p>
                         <p className="text-xs text-muted-foreground">
-                          {branchNameMap[item.branchId] || item.branchId?.slice(-6) || "—"}
+                          Stock: {item.currentStock || 0} / {item.preparedQuantity || 0}
                         </p>
                       </div>
                       <Badge
@@ -278,7 +185,6 @@ const OwnerInventoryOverview = () => {
           </CardContent>
         </Card>
 
-        {/* Quick Stats */}
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center gap-2">
@@ -315,31 +221,12 @@ const OwnerInventoryOverview = () => {
         </Card>
       </div>
 
-      {/* Detailed Items Table */}
       <Card>
         <CardHeader className="pb-2">
-          <div className="flex items-center justify-between flex-wrap gap-2">
-            <CardTitle className="text-sm">
-              All Items {selectedBranch !== "all" && `(Filtered: ${branchNameMap[selectedBranch] || selectedBranch})`}
-            </CardTitle>
-            <div className="flex gap-2">
-              <select
-                className="h-8 rounded-md border bg-transparent px-2 text-sm"
-                value={selectedBranch}
-                onChange={(e) => setSelectedBranch(e.target.value)}
-              >
-                <option value="all">All Branches</option>
-                {uniqueBranches.map((id) => (
-                  <option key={id} value={id}>
-                    {branchNameMap[id] || id?.slice(-6) || "Unknown"}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
+          <CardTitle className="text-sm">All Items</CardTitle>
         </CardHeader>
         <CardContent>
-          {filteredItems.length === 0 ? (
+          {stockItems.length === 0 ? (
             <EmptyState title="No items" description="No inventory items found." icon={Package} />
           ) : (
             <div className="overflow-x-auto">
@@ -347,14 +234,13 @@ const OwnerInventoryOverview = () => {
                 <thead>
                   <tr className="border-b text-left">
                     <th className="py-2 pr-4">Item</th>
-                    <th className="py-2 pr-4">Branch</th>
                     <th className="py-2 pr-4">Current Stock</th>
                     <th className="py-2 pr-4">Status</th>
                     <th className="py-2 pr-4 text-right">Value</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredItems.map((item, i) => {
+                  {stockItems.map((item, i) => {
                     const statusConfig = STATUS_CONFIG[item.currentStatus] || STATUS_CONFIG["In Stock"];
                     const qty = item.currentStock || 0;
                     const unitCost = item.unitCost || 100;
@@ -363,9 +249,6 @@ const OwnerInventoryOverview = () => {
                     return (
                       <tr key={i} className="border-b hover:bg-muted/50">
                         <td className="py-2 pr-4 font-medium">{item.foodName || "—"}</td>
-                        <td className="py-2 pr-4 text-muted-foreground">
-                          {branchNameMap[item.branchId] || item.branchId?.slice(-6) || "—"}
-                        </td>
                         <td className="py-2 pr-4">
                           {qty} / {item.preparedQuantity || 0}
                         </td>

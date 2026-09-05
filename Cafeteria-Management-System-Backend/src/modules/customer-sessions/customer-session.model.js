@@ -2,12 +2,6 @@ const mongoose = require('mongoose');
 
 const customerSessionSchema = new mongoose.Schema(
   {
-    branchId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Branch',
-      required: [true, 'Branch reference is required'],
-      index: true,
-    },
     tableId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Table',
@@ -21,7 +15,6 @@ const customerSessionSchema = new mongoose.Schema(
       unique: true,
       index: true,
     },
-    /** Number of customers who joined via this session (seat occupancy). */
     customerCount: {
       type: Number,
       default: 1,
@@ -49,7 +42,7 @@ const customerSessionSchema = new mongoose.Schema(
   }
 );
 
-customerSessionSchema.index({ branchId: 1, tableId: 1, isActive: 1 });
+customerSessionSchema.index({ tableId: 1, isActive: 1 });
 
 const CustomerSession = mongoose.model('CustomerSession', customerSessionSchema);
 

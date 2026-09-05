@@ -19,6 +19,7 @@ import {
   QrCode,
 } from "lucide-react";
 import OrderDetailsDrawer from "./OrderDetailsDrawer";
+import ConfirmOrderPaymentDialog from "../../shared/ConfirmOrderPaymentDialog";
 
 const ORDER_STATUS_CONFIG = {
   WAITING_FOR_PAYMENT: { color: "bg-yellow-500", icon: Clock, label: "Waiting", variant: "outline" },
@@ -51,13 +52,14 @@ const PaymentBadge = ({ status }) => {
   return <Badge variant={variant} className={color}>{label}</Badge>;
 };
 
-const OrderCard = ({ order, onClick }) => {
+const OrderCard = ({ order, onClick, onConfirm }) => {
   const statusConfig = ORDER_STATUS_CONFIG[order.orderStatus] || ORDER_STATUS_CONFIG.CONFIRMED;
   const StatusIcon = statusConfig.icon;
   const orderAge = Math.floor((Date.now() - new Date(order.createdAt).getTime()) / 60000);
   const isDelayed = orderAge > 20 && !["COMPLETED", "CANCELLED", "DELIVERED", "READY"].includes(order.orderStatus);
   const sourceConfig = SOURCE_CONFIG[order.source] || SOURCE_CONFIG.CASHIER;
   const SourceIcon = sourceConfig.icon;
+  const canConfirm = ["UNPAID", "PENDING"].includes(order.paymentStatus) && order.orderStatus !== "CANCELLED";
 
   return (
     <Card
@@ -113,7 +115,21 @@ const OrderCard = ({ order, onClick }) => {
 
         <div className="flex items-center justify-between pt-2 border-t">
           <PaymentBadge status={order.paymentStatus} />
-          <span className="font-bold">{(order.total || 0).toLocaleString()} ETB</span>
+          <div className="flex items-center gap-2">
+            {canConfirm && (
+              <Button
+                size="sm"
+                className="h-7 px-2 text-xs bg-green-600 hover:bg-green-700"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (onConfirm) onConfirm(order);
+                }}
+              >
+                Confirm Payment
+              </Button>
+            )}
+            <span className="font-bold">{(order.total || 0).toLocaleString()} ETB</span>
+          </div>
         </div>
       </CardContent>
     </Card>
@@ -187,21 +203,22 @@ const TableOrderGroup = ({ tableId, tableNumber, orders, onOrderClick }) => {
   );
 };
 
-const ManagerLiveOrders = ({ branchId, orders: propOrders, title = "Live Orders" }) => {
-  const { orders: storeOrders, getBranchOrders, isLoading, setupSocketListeners, cleanupSocketListeners } = useOrderStore();
+const ManagerLiveOrders = ({ orders: propOrders, title = "Live Orders" }) => {
+  const { orders: storeOrders, getOrders, isLoading, setupSocketListeners, cleanupSocketListeners } = useOrderStore();
   const orders = propOrders || storeOrders;
 
   const [localFilter, setLocalFilter] = useState("");
   const [viewMode, setViewMode] = useState("grid");
   const [selectedOrder, setSelectedOrder] = useState(null);
+  const [confirmOrder, setConfirmOrder] = useState(null);
 
   useEffect(() => {
-    if (!propOrders && branchId) {
-      getBranchOrders(branchId, { limit: 50 });
+    if (!propOrders) {
+      getOrders({ limit: 50 });
     }
     setupSocketListeners();
     return () => cleanupSocketListeners();
-  }, [branchId, propOrders, getBranchOrders, setupSocketListeners, cleanupSocketListeners]);
+  }, [propOrders, getOrders, setupSocketListeners, cleanupSocketListeners]);
 
   const filteredOrders = useMemo(() => {
     let filtered = orders.filter(o => !["COMPLETED", "CANCELLED"].includes(o.orderStatus));
@@ -344,6 +361,7 @@ const ManagerLiveOrders = ({ branchId, orders: propOrders, title = "Live Orders"
                   key={order._id}
                   order={order}
                   onClick={() => setSelectedOrder(order)}
+                  onConfirm={setConfirmOrder}
                 />
               ))}
             </div>
@@ -355,6 +373,13 @@ const ManagerLiveOrders = ({ branchId, orders: propOrders, title = "Live Orders"
         order={selectedOrder}
         open={!!selectedOrder}
         onClose={() => setSelectedOrder(null)}
+      />
+
+      <ConfirmOrderPaymentDialog
+        order={confirmOrder}
+        open={!!confirmOrder}
+        onClose={() => setConfirmOrder(null)}
+        onConfirmed={() => getOrders({ limit: 50 })}
       />
     </>
   );

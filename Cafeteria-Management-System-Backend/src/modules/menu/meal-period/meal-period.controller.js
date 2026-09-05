@@ -4,18 +4,13 @@ const asyncHandler = require('../../../utils/async-handler');
 
 class MealPeriodController {
   createMealPeriod = asyncHandler(async (req, res) => {
-    const mealPeriod = await mealPeriodService.createMealPeriod(
-      req.params.branchId,
-      req.body,
-      req.user?._id,
-      req.user?.organizationId
-    );
+    const mealPeriod = await mealPeriodService.createMealPeriod(req.body);
     return ApiResponse.created(res, 'Meal period created successfully', mealPeriod);
   });
 
-  getMealPeriodsByBranch = asyncHandler(async (req, res) => {
-    const activeOnly = req.query.activeOnly === 'true';
-    const mealPeriods = await mealPeriodService.getMealPeriodsByBranch(req.params.branchId, { activeOnly });
+  getMealPeriods = asyncHandler(async (req, res) => {
+    const { activeOnly } = req.query;
+    const mealPeriods = await mealPeriodService.getMealPeriods({ activeOnly: activeOnly === 'true' });
     return ApiResponse.success(res, 200, 'Meal periods retrieved successfully', mealPeriods);
   });
 
@@ -25,23 +20,12 @@ class MealPeriodController {
   });
 
   updateMealPeriod = asyncHandler(async (req, res) => {
-    const mealPeriod = await mealPeriodService.updateMealPeriod(
-      req.params.id,
-      req.body,
-      req.user?._id,
-      req.user?.organizationId,
-      req.user?.branchId
-    );
+    const mealPeriod = await mealPeriodService.updateMealPeriod(req.params.id, req.body);
     return ApiResponse.success(res, 200, 'Meal period updated successfully', mealPeriod);
   });
 
   deleteMealPeriod = asyncHandler(async (req, res) => {
-    const result = await mealPeriodService.deleteMealPeriod(
-      req.params.id,
-      req.user?._id,
-      req.user?.organizationId,
-      req.user?.branchId
-    );
+    const result = await mealPeriodService.deleteMealPeriod(req.params.id);
     return ApiResponse.success(res, 200, result.message);
   });
 }

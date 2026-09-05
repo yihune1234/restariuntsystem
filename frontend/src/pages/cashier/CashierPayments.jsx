@@ -65,12 +65,11 @@ const StatusFilterTabs = ({ active, counts, onChange }) => (
 
 export const CashierPayments = () => {
   const { authUser } = useAuthStore();
-  const branchId = authUser?.branchId;
-  const { orders, getBranchOrders, isLoading, setupSocketListeners, cleanupSocketListeners, getOrderById, cancelOrder } = useOrderStore();
+  const { orders, getOrders, isLoading, setupSocketListeners, cleanupSocketListeners, getOrderById, cancelOrder } = useOrderStore();
   const { confirmCashierPayment, isLoading: paymentLoading } = usePaymentStore();
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("UNPAID");
+  const [statusFilter, setStatusFilter] = useState("PAID");
   const [expandedOrderId, setExpandedOrderId] = useState(null);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [showBillDialog, setShowBillDialog] = useState(false);
@@ -81,11 +80,12 @@ export const CashierPayments = () => {
   const [processingId, setProcessingId] = useState(null);
   const [isRefunding, setIsRefunding] = useState(false);
 
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
   const loadOrders = useCallback(async () => {
-    if (branchId) {
-      await getBranchOrders(branchId, { limit: 50 });
-    }
-  }, [branchId, getBranchOrders]);
+    await getOrders({ limit: 100 });
+  }, [getOrders]);
 
   useEffect(() => {
     loadOrders();
@@ -106,7 +106,7 @@ export const CashierPayments = () => {
     }
     setCodeLookup(true);
     try {
-      const res = await findBySecurityCode(branchId, code);
+      const res = await findBySecurityCode(code);
       if (res.success && res.order) {
         setStatusFilter("ALL"); // match may already be paid or in another state
         setSearchQuery(code); // isolate the matching order(s) in the list
@@ -116,9 +116,13 @@ export const CashierPayments = () => {
     } finally {
       setCodeLookup(false);
     }
-  }, [pickupCode, branchId, findBySecurityCode]);
+  }, [pickupCode, findBySecurityCode]);
 
   const filteredOrders = orders.filter((o) => {
+    if (o.placedBy?.toString() !== authUser?._id?.toString()) return false;
+    const orderDate = new Date(o.createdAt);
+    orderDate.setHours(0, 0, 0, 0);
+    if (orderDate.getTime() !== today.getTime()) return false;
     if (statusFilter !== "ALL" && o.paymentStatus !== statusFilter) return false;
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
@@ -130,7 +134,7 @@ export const CashierPayments = () => {
     return true;
   });
 
-  const statusCounts = orders.reduce((acc, o) => {
+  const statusCounts = filteredOrders.reduce((acc, o) => {
     acc[o.paymentStatus] = (acc[o.paymentStatus] || 0) + 1;
     return acc;
   }, {});
@@ -179,14 +183,6 @@ export const CashierPayments = () => {
   const toggleExpand = (orderId) => {
     setExpandedOrderId((prev) => (prev === orderId ? null : orderId));
   };
-
-  if (!branchId) {
-    return (
-      <div className="p-6">
-        <p className="text-muted-foreground">No branch assigned yet.</p>
-      </div>
-    );
-  }
 
   return (
     <div className="p-4 lg:p-6 space-y-5">

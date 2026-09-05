@@ -3,105 +3,169 @@ import useDashboardStore from "@/store/useDashboardStore";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
-import { TrendingUp, TrendingDown } from "lucide-react";
+import { TrendingUp, TrendingDown, DollarSign, ShoppingCart, CheckCircle, Clock } from "lucide-react";
 
 const OwnerRevenueAnalytics = () => {
-  const { dashboardData, fetchDashboardSummary, isLoading } = useDashboardStore();
+  const { ownerKPIs, fetchOwnerKPIs, isLoading } = useDashboardStore();
 
   useEffect(() => {
-    fetchDashboardSummary();
-  }, [fetchDashboardSummary]);
+    fetchOwnerKPIs();
+  }, [fetchOwnerKPIs]);
 
-  const branches = dashboardData?.branchPerformance || [];
-  const topBranch = branches.length > 0 ? branches.reduce((a, b) => (a.totalRevenue > b.totalRevenue ? a : b)) : null;
-  const lowestBranch = branches.length > 0 ? branches.reduce((a, b) => (a.totalRevenue < b.totalRevenue ? a : b)) : null;
+  const kpis = ownerKPIs?.kpis;
+  const revenue = kpis?.revenue || {};
+  const orders = kpis?.orders || {};
+  const tables = kpis?.tables || {};
+  const paymentBreakdown = kpis?.paymentBreakdown || {};
+  const sourceBreakdown = kpis?.sourceBreakdown || {};
 
   return (
     <div className="space-y-6">
-      <div className="grid md:grid-cols-2 gap-4">
+      <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="size-10 rounded-lg bg-green-100 flex items-center justify-center">
+                <DollarSign className="size-5 text-green-600" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Total Revenue</p>
+                <p className="text-2xl font-bold">{(revenue.total || 0).toLocaleString()} ETB</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="size-10 rounded-lg bg-blue-100 flex items-center justify-center">
+                <ShoppingCart className="size-5 text-blue-600" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Total Orders</p>
+                <p className="text-2xl font-bold">{orders.total || 0}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="size-10 rounded-lg bg-orange-100 flex items-center justify-center">
+                <Clock className="size-5 text-orange-600" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Active Orders</p>
+                <p className="text-2xl font-bold">{orders.active || 0}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="size-10 rounded-lg bg-purple-100 flex items-center justify-center">
+                <CheckCircle className="size-5 text-purple-600" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Completed</p>
+                <p className="text-2xl font-bold">{orders.completed || 0}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid md:grid-cols-2 gap-6">
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="size-5 text-green-500" />
-              Top Performing Branch
-            </CardTitle>
+            <CardTitle>Order Status</CardTitle>
           </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <Skeleton className="h-20" />
-            ) : topBranch ? (
-              <div>
-                <p className="text-2xl font-bold">Branch {topBranch._id?.slice(-6)}</p>
-                <p className="text-3xl font-bold text-green-600 mt-2">
-                  {(topBranch.totalRevenue || 0).toLocaleString()} ETB
-                </p>
-                <p className="text-sm text-muted-foreground mt-1">{topBranch.orderCount || 0} orders</p>
-              </div>
-            ) : (
-              <EmptyState title="No data" />
-            )}
+          <CardContent className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm">Pending</span>
+              <span className="font-bold">{orders.pending || 0}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm">Preparing</span>
+              <span className="font-bold">{orders.preparing || 0}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm">Ready</span>
+              <span className="font-bold">{orders.ready || 0}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm">Completed</span>
+              <span className="font-bold">{orders.completed || 0}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm">Cancelled</span>
+              <span className="font-bold">{orders.cancelled || 0}</span>
+            </div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <TrendingDown className="size-5 text-red-500" />
-              Needs Attention
-            </CardTitle>
+            <CardTitle>Payment Methods</CardTitle>
           </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <Skeleton className="h-20" />
-            ) : lowestBranch ? (
-              <div>
-                <p className="text-2xl font-bold">Branch {lowestBranch._id?.slice(-6)}</p>
-                <p className="text-3xl font-bold text-red-600 mt-2">
-                  {(lowestBranch.totalRevenue || 0).toLocaleString()} ETB
-                </p>
-                <p className="text-sm text-muted-foreground mt-1">{lowestBranch.orderCount || 0} orders</p>
-              </div>
-            ) : (
-              <EmptyState title="No data" />
-            )}
+          <CardContent className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm">Cash</span>
+              <span className="font-bold">{(paymentBreakdown.Cash?.amount || 0).toLocaleString()} ETB ({paymentBreakdown.Cash?.count || 0})</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm">Card</span>
+              <span className="font-bold">{(paymentBreakdown.Card?.amount || 0).toLocaleString()} ETB ({paymentBreakdown.Card?.count || 0})</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm">Digital</span>
+              <span className="font-bold">{(paymentBreakdown.Digital?.amount || 0).toLocaleString()} ETB ({paymentBreakdown.Digital?.count || 0})</span>
+            </div>
           </CardContent>
         </Card>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Branch Comparison</CardTitle>
+          <CardTitle>Order Sources</CardTitle>
         </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <Skeleton className="h-60" />
-          ) : branches.length > 0 ? (
-            <div className="space-y-3">
-              {branches.map((branch) => {
-                const maxRevenue = Math.max(...branches.map((b) => b.totalRevenue || 0));
-                const width = maxRevenue > 0 ? ((branch.totalRevenue || 0) / maxRevenue) * 100 : 0;
-                return (
-                  <div key={branch._id} className="space-y-1">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="font-medium">Branch {branch._id?.slice(-6)}</span>
-                      <div className="flex items-center gap-4">
-                        <span className="text-muted-foreground">{branch.orderCount || 0} orders</span>
-                        <span className="font-bold">{(branch.totalRevenue || 0).toLocaleString()} ETB</span>
-                      </div>
-                    </div>
-                    <div className="h-3 bg-muted rounded-full overflow-hidden">
-                      <div
-                        className={`h-full rounded-full ${branch === topBranch ? "bg-green-500" : "bg-primary"}`}
-                        style={{ width: `${width}%` }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <EmptyState title="No branch data" />
-          )}
+        <CardContent className="space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-sm">QR Code</span>
+            <span className="font-bold">{(sourceBreakdown.QR?.revenue || 0).toLocaleString()} ETB ({sourceBreakdown.QR?.count || 0})</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-sm">Cashier</span>
+            <span className="font-bold">{(sourceBreakdown.Cashier?.revenue || 0).toLocaleString()} ETB ({sourceBreakdown.Cashier?.count || 0})</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-sm">Manual</span>
+            <span className="font-bold">{(sourceBreakdown.Manual?.revenue || 0).toLocaleString()} ETB ({sourceBreakdown.Manual?.count || 0})</span>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Table Status</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-sm">Total Tables</span>
+            <span className="font-bold">{tables.total || 0}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-sm">Occupied</span>
+            <span className="font-bold">{tables.occupied || 0}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-sm">Available</span>
+            <span className="font-bold">{tables.available || 0}</span>
+          </div>
         </CardContent>
       </Card>
     </div>

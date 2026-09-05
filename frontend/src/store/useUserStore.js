@@ -2,27 +2,18 @@ import { create } from "zustand";
 import { toast } from "sonner";
 import axiosInstance from "../axios/axiosInstace";
 
-/**
- * Staff user store. Real backend contracts:
- *   GET    /branches/:branchId/users          - list branch staff
- *   POST   /branches/:branchId/users          - create staff
- *   GET    /users/:userId                     - get single
- *   PATCH  /users/:userId                     - update name/role/phone/isActive
- *   DELETE /users/:userId                     - deactivate (soft delete)
- */
-export const useUserStore = create((set) => ({
+export const useUserStore = create((set, get) => ({
     staff: [],
     isLoading: false,
     error: null,
 
-    /** Fetch staff assigned to a specific branch. */
-    fetchStaffByBranch: async (branchId, { role, isActive } = {}) => {
+    fetchStaff: async ({ role, isActive } = {}) => {
         set({ isLoading: true, error: null });
         try {
             const params = {};
             if (role) params.role = role;
             if (isActive !== undefined) params.isActive = isActive;
-            const res = await axiosInstance.get(`/branches/${branchId}/users`, { params });
+            const res = await axiosInstance.get("/users", { params });
             set({ staff: res.data?.data || [], isLoading: false });
             return res.data?.data || [];
         } catch (err) {
@@ -31,7 +22,10 @@ export const useUserStore = create((set) => ({
         }
     },
 
-    /** Fetch a single user by id (any staff can view their own). */
+    fetchStaffByBranch: async (branchId, { role, isActive } = {}) => {
+        return get().fetchStaff({ role, isActive });
+    },
+
     fetchUser: async (userId) => {
         set({ isLoading: true });
         try {
@@ -45,11 +39,10 @@ export const useUserStore = create((set) => ({
         }
     },
 
-    /** Create new staff for a branch (Manager/Owner only). */
-    createStaff: async (branchId, payload) => {
+    createStaff: async (payload) => {
         set({ isLoading: true });
         try {
-            const res = await axiosInstance.post(`/branches/${branchId}/users`, payload);
+            const res = await axiosInstance.post("/users", payload);
             const user = res.data?.data;
             set((state) => ({ staff: [...state.staff, user], isLoading: false }));
             toast.success("Staff user created");
@@ -62,7 +55,6 @@ export const useUserStore = create((set) => ({
         }
     },
 
-    /** Update a user's profile / role / active status. */
     updateStaff: async (userId, payload) => {
         set({ isLoading: true });
         try {
@@ -81,11 +73,9 @@ export const useUserStore = create((set) => ({
         }
     },
 
-    /** Soft-delete (deactivate) a staff user. */
     deleteStaff: async (userId) => {
         try {
             const res = await axiosInstance.delete(`/users/${userId}`);
-            // Backend marks isActive=false & deletedAt=now.
             set((state) => ({
                 staff: state.staff.map((s) =>
                     s._id === userId ? { ...s, isActive: false, deletedAt: new Date().toISOString() } : s

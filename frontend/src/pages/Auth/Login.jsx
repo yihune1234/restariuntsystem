@@ -21,11 +21,10 @@ import {
 } from 'lucide-react';
 
 const DEMO_ACCOUNTS = [
-  { role: 'Owner', email: 'owner@habesha.com', hint: 'All branches access', color: 'bg-purple-100 text-purple-700 border-purple-200' },
-  { role: 'Manager', email: 'manager.bole@habesha.com', hint: 'Bole branch', color: 'bg-blue-100 text-blue-700 border-blue-200' },
-  { role: 'Cashier', email: 'cashier.bole@habesha.com', hint: 'Bole branch', color: 'bg-green-100 text-green-700 border-green-200' },
-  { role: 'Waiter', email: 'waiter.bole@habesha.com', hint: 'Bole branch', color: 'bg-amber-100 text-amber-700 border-amber-200' },
-  { role: 'Chef', email: 'kitchen.bole@habesha.com', hint: 'Kitchen display', color: 'bg-red-100 text-red-700 border-red-200' },
+  { role: 'Owner', email: 'owner@habesha.com', hint: 'Full access', color: 'bg-purple-100 text-purple-700 border-purple-200' },
+  { role: 'Manager', email: 'manager@habesha.com', hint: 'Management', color: 'bg-blue-100 text-blue-700 border-blue-200' },
+  { role: 'Cashier', email: 'cashier@habesha.com', hint: 'Cashier', color: 'bg-green-100 text-green-700 border-green-200' },
+  { role: 'Chef', email: 'kitchen@habesha.com', hint: 'Kitchen display', color: 'bg-red-100 text-red-700 border-red-200' },
 ];
 const DEMO_PASSWORD = 'Password123!';
 
@@ -114,8 +113,8 @@ const Login = () => {
             <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-cyan-500 to-cyan-600 rounded-2xl shadow-lg shadow-cyan-500/25 mb-4">
               <UtensilsCrossed className="size-8 text-white" />
             </div>
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Tasty Station POS</h1>
-            <p className="text-slate-500 dark:text-slate-400 mt-1">Restaurant Management System</p>
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Faarees Kaafee POS</h1>
+            <p className="text-slate-500 dark:text-slate-400 mt-1">ፋሪስ ካፌ እና ሪስቶራንት</p>
           </div>
 
           {/* Login Card */}
@@ -282,7 +281,7 @@ const Login = () => {
 
           {/* Footer */}
           <p className="text-center text-xs text-slate-400 dark:text-slate-500 mt-6">
-            © {new Date().getFullYear()} Tasty Station. All rights reserved.
+            © {new Date().getFullYear()} Faarees Kaafee fi Restoorraantii. All rights reserved.
           </p>
         </div>
       </div>

@@ -3,12 +3,9 @@ const { ORDER_SOURCES, PAYMENT_STATUSES, ORDER_STATUSES } = require('./order.mod
 
 const createOrderSchema = {
   body: Joi.object({
-    branchId: Joi.string().hex().length(24).required(),
     tableId: Joi.string().hex().length(24).allow(null).default(null),
     customerSessionId: Joi.string().hex().length(24),
     customerName: Joi.string().trim().max(100).allow(null, ''),
-    /** Order-level "Customer Note / Special Request" — visible to chef,
-     *  waiter, manager and owner. Distinct from per-item `notes`. */
     customerNote: Joi.string().trim().max(500).allow('').default(''),
     source: Joi.string().valid(...ORDER_SOURCES).default('CUSTOMER_QR'),
     items: Joi.array()
@@ -24,10 +21,7 @@ const createOrderSchema = {
   }),
 };
 
-const getBranchOrdersSchema = {
-  params: Joi.object({
-    branchId: Joi.string().hex().length(24).required(),
-  }),
+const getOrdersSchema = {
   query: Joi.object({
     status: Joi.string().valid(...ORDER_STATUSES),
     paymentStatus: Joi.string().valid(...PAYMENT_STATUSES),
@@ -54,15 +48,6 @@ const cancelOrderSchema = {
   }),
 };
 
-/** STAFF pickup-code lookup: /branches/:branchId/orders/code/:code */
-const getOrdersBySecurityCodeSchema = {
-  params: Joi.object({
-    branchId: Joi.string().hex().length(24).required(),
-    code: Joi.string().pattern(/^\d{4}$/).required(),
-  }),
-};
-
-/** PUBLIC track-by-code: /public/orders/code/:code */
 const securityCodeParamSchema = {
   params: Joi.object({
     code: Joi.string().pattern(/^\d{4}$/).required(),
@@ -71,9 +56,8 @@ const securityCodeParamSchema = {
 
 module.exports = {
   createOrderSchema,
-  getBranchOrdersSchema,
+  getOrdersSchema,
   orderIdParamSchema,
   cancelOrderSchema,
-  getOrdersBySecurityCodeSchema,
   securityCodeParamSchema,
 };

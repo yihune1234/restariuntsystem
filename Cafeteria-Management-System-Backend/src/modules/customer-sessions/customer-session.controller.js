@@ -4,19 +4,7 @@ const asyncHandler = require('../../utils/async-handler');
 
 class CustomerSessionController {
   createSession = asyncHandler(async (req, res) => {
-    /**
-     * Staff-only capacity override: a MANAGER/OWNER/WAITER/CASHIER bearer
-     * token lets an authorized staff member seat a party on a full table
-     * (host-seated walk-ins, reserved-table walkups, etc.).
-     */
-    const staffOverride =
-      req.user &&
-      ['OWNER', 'MANAGER', 'WAITER', 'CASHIER'].includes(req.user.role) &&
-      req.body.staffOverride === true;
-
-    const session = await customerSessionService.createSessionByQR(req.body.qrToken, {
-      staffOverride,
-    });
+    const session = await customerSessionService.createSessionByQR(req.body.qrToken);
     return ApiResponse.created(res, 'Customer session initiated successfully', session);
   });
 

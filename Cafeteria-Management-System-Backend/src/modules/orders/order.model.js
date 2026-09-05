@@ -1,29 +1,12 @@
 const mongoose = require('mongoose');
 
-const ORDER_SOURCES = ['CUSTOMER_ONLINE', 'CUSTOMER_QR', 'CASHIER', 'WAITER', 'KIOSK', 'ONLINE', 'DELIVERY', 'MANUAL', 'OFFLINE_ENTERED'];
+const ORDER_SOURCES = ['CUSTOMER_QR', 'CASHIER', 'KIOSK', 'ONLINE', 'MANUAL'];
 
 const PAYMENT_METHODS = ['CHAPA', 'TELEBIRR', 'CASH', 'CARD', 'BANK_TRANSFER', 'UNSET'];
 
-const PAYMENT_STATUSES = [
-  'UNPAID',
-  'PENDING',
-  'PAID',
-  'FAILED',
-  'CANCELLED',
-  'EXPIRED',
-  'REFUNDED',
-];
+const PAYMENT_STATUSES = ['UNPAID', 'PENDING', 'PAID', 'FAILED', 'CANCELLED', 'EXPIRED', 'REFUNDED'];
 
-const ORDER_STATUSES = [
-  'WAITING_FOR_PAYMENT',
-  'CONFIRMED',
-  'PREPARING',
-  'READY',
-  'TAKEN_BY_WAITER',
-  'DELIVERED',
-  'COMPLETED',
-  'CANCELLED',
-];
+const ORDER_STATUSES = ['PENDING', 'PREPARING', 'READY', 'COMPLETED', 'CANCELLED'];
 
 const orderItemSchema = new mongoose.Schema(
   {
@@ -33,6 +16,10 @@ const orderItemSchema = new mongoose.Schema(
       required: true,
     },
     foodNameSnapshot: {
+      type: String,
+      required: true,
+    },
+    categorySnapshot: {
       type: String,
       required: true,
     },
@@ -67,18 +54,6 @@ const orderSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
-    organizationId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Organization',
-      required: true,
-      index: true,
-    },
-    branchId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Branch',
-      required: true,
-      index: true,
-    },
     tableId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Table',
@@ -90,16 +65,6 @@ const orderSchema = new mongoose.Schema(
       type: String,
       trim: true,
       default: null,
-    },
-    orderType: {
-      type: String,
-      enum: ['TABLE', 'NO_TABLE'],
-      default: 'TABLE',
-    },
-    customerSessionId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'CustomerSession',
-      index: true,
     },
     securityCode: {
       type: String,
@@ -155,16 +120,9 @@ const orderSchema = new mongoose.Schema(
     orderStatus: {
       type: String,
       enum: ORDER_STATUSES,
-      default: 'WAITING_FOR_PAYMENT',
+      default: 'PENDING',
       index: true,
     },
-    assignedWaiterId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
-      index: true,
-    },
-    /** Order-level message from the customer. Visible to Chef, Waiter, Manager
-     *  and Owner. Distinct from per-item `notes` inside `items[]`. */
     customerNote: {
       type: String,
       trim: true,
@@ -178,7 +136,6 @@ const orderSchema = new mongoose.Schema(
     confirmedAt: { type: Date, default: null },
     preparedAt: { type: Date, default: null },
     readyAt: { type: Date, default: null },
-    deliveredAt: { type: Date, default: null },
     completedAt: { type: Date, default: null },
     cancelledAt: { type: Date, default: null },
     cancelReason: { type: String, default: null },
@@ -194,11 +151,9 @@ const orderSchema = new mongoose.Schema(
   }
 );
 
-// High-performance compound indexes for kitchen queue, waiter queue, cashier dashboard and analytics
-orderSchema.index({ branchId: 1, orderStatus: 1, createdAt: -1 });
-orderSchema.index({ branchId: 1, paymentStatus: 1, createdAt: -1 });
-orderSchema.index({ branchId: 1, createdAt: -1 });
-orderSchema.index({ customerSessionId: 1, createdAt: -1 });
+orderSchema.index({ orderStatus: 1, createdAt: -1 });
+orderSchema.index({ paymentStatus: 1, createdAt: -1 });
+orderSchema.index({ createdAt: -1 });
 orderSchema.index({ tableId: 1, orderStatus: 1 });
 
 const Order = mongoose.model('Order', orderSchema);

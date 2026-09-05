@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from "react";
-import { useAuthStore } from "@/store/useAuthStore";
 import { useOrderStore } from "@/store/useOrderStore";
 import { getSocket } from "@/config/socket.config";
 import { Card, CardContent } from "@/components/ui/card";
@@ -8,54 +7,27 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { SecurityCode } from "./StatusBadge";
 import { Truck } from "lucide-react";
 
-/**
- * Real-time order status monitor (waiter/cashier).
- * Subscribes to the backend's canonical Socket.IO events.
- */
 const OrderStatus = () => {
-  const { authUser } = useAuthStore();
-  const branchId = authUser?.branchId;
-  const { orders, getBranchOrders } = useOrderStore();
+  const { orders, getOrders, setupSocketListeners, cleanupSocketListeners } = useOrderStore();
   const [socketConnected, setSocketConnected] = useState(false);
 
   useEffect(() => {
-    if (branchId) getBranchOrders(branchId, { limit: 50 });
+    getOrders({ limit: 50 });
+    setupSocketListeners();
 
     const socket = getSocket();
     socket?.on("connect", () => setSocketConnected(true));
     socket?.on("disconnect", () => setSocketConnected(false));
 
-    const refresh = () => branchId && getBranchOrders(branchId, { limit: 50 });
-    socket?.on("order:created", refresh);
-    socket?.on("order:confirmed", refresh);
-    socket?.on("order:preparing", refresh);
-    socket?.on("order:ready", refresh);
-    socket?.on("order:taken", refresh);
-    socket?.on("order:delivered", refresh);
-    socket?.on("order:cancelled", refresh);
     return () => {
+      cleanupSocketListeners();
       socket?.off("connect", setSocketConnected);
       socket?.off("disconnect", setSocketConnected);
-      socket?.off("order:created", refresh);
-      socket?.off("order:confirmed", refresh);
-      socket?.off("order:preparing", refresh);
-      socket?.off("order:ready", refresh);
-      socket?.off("order:taken", refresh);
-      socket?.off("order:delivered", refresh);
-      socket?.off("order:cancelled", refresh);
     };
-  }, [branchId, getBranchOrders]);
+  }, [getOrders, setupSocketListeners, cleanupSocketListeners]);
 
   const activeStatuses = ["WAITING_FOR_PAYMENT", "CONFIRMED", "PREPARING", "READY", "TAKEN_BY_WAITER"];
   const active = orders.filter((o) => activeStatuses.includes(o.orderStatus));
-
-  if (!branchId) {
-    return (
-      <div className="p-6">
-        <p className="text-muted-foreground">You are not assigned to a branch yet.</p>
-      </div>
-    );
-  }
 
   return (
     <div className="p-4 lg:p-6">
@@ -78,12 +50,12 @@ const OrderStatus = () => {
                   <SecurityCode code={o.securityCode} />
                 </div>
                 <p className="text-sm text-muted-foreground mb-2">
-                  {o.tableId ? `Table ${o.tableId.tableNumber}` : "NO TABLE"} \u2022 {o.source}
+                  {o.tableId ? `Table ${o.tableId.tableNumber}` : "NO TABLE"} • {o.source}
                 </p>
                 <div className="space-y-1 text-sm mb-3">
                   {o.items?.slice(0, 3).map((it, i) => (
                     <div key={i} className="flex justify-between">
-                      <span>{it.foodNameSnapshot} \u00d7 {it.quantity}</span>
+                      <span>{it.foodNameSnapshot} × {it.quantity}</span>
                       <span>{((it.unitPriceSnapshot || 0) * it.quantity).toLocaleString()}</span>
                     </div>
                   ))}

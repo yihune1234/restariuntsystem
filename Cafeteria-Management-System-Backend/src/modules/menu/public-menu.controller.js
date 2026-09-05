@@ -1,157 +1,207 @@
-const MealPeriod = require('./meal-period/meal-period.model');
 const Category = require('./category/category.model');
 const FoodItem = require('./food/food.model');
-const Branch = require('../branches/branch.model');
-const DailyStock = require('../inventory/daily-stock.model');
-const { getTodayBusinessDate } = require('../../utils/date');
-const { NotFoundError } = require('../../utils/errors');
+const MealPeriod = require('./meal-period/meal-period.model');
 const ApiResponse = require('../../utils/response');
 const asyncHandler = require('../../utils/async-handler');
 
+const isMealPeriodActive = (mealPeriod) => {
+  if (!mealPeriod || !mealPeriod.isActive) return false;
+  const now = new Date();
+  const [hours, minutes] = now.toTimeString().slice(0, 5).split(':').map(Number);
+  const currentMinutes = hours * 60 + minutes;
+  const [startH, startM] = (mealPeriod.startTime || '00:00').split(':').map(Number);
+  const [endH, endM] = (mealPeriod.endTime || '23:59').split(':').map(Number);
+  const startMinutes = startH * 60 + startM;
+  const endMinutes = endH * 60 + endM;
+  if (startMinutes <= endMinutes) {
+    return currentMinutes >= startMinutes && currentMinutes <= endMinutes;
+  }
+  return currentMinutes >= startMinutes || currentMinutes <= endMinutes;
+};
+
 class PublicMenuController {
   getPublicMenu = asyncHandler(async (req, res) => {
-    const { branchId } = req.params;
-    const { mealPeriodId } = req.query;
-
-    const branch = await Branch.findOne({
-      _id: branchId,
-      isActive: true,
-      deletedAt: null,
-    });
-
-    if (!branch) {
-      throw new NotFoundError('Branch not found or inactive', 'BRANCH_NOT_FOUND');
-    }
-
-    // 1. Fetch active meal periods
-    const mealPeriodFilter = {
-      branchId,
-      isActive: true,
-      deletedAt: null,
-    };
-    if (mealPeriodId) {
-      mealPeriodFilter._id = mealPeriodId;
-    }
-
-    const mealPeriods = await MealPeriod.find(mealPeriodFilter).sort({ displayOrder: 1, name: 1 });
-
-    if (!mealPeriods.length) {
-      return ApiResponse.success(res, 200, 'Public menu retrieved', {
-        branch: {
-          id: branch._id,
-          name: branch.name,
-          currency: branch.settings?.currency || 'ETB',
-          taxRate: branch.settings?.taxRate || 0.15,
-          openTime: branch.settings?.openTime,
-          closeTime: branch.settings?.closeTime,
-        },
-        menu: [],
-      });
-    }
-
-    const mealPeriodIds = mealPeriods.map((mp) => mp._id);
-
-    // 2. Fetch active categories for these meal periods
     const categories = await Category.find({
-      branchId,
-      mealPeriodId: { $in: mealPeriodIds },
       isActive: true,
+      isHidden: false,
       deletedAt: null,
     }).sort({ displayOrder: 1, name: 1 });
 
     const categoryIds = categories.map((cat) => cat._id);
 
-    // 3. Fetch active and available food items
     const foodItems = await FoodItem.find({
-      branchId,
       categoryId: { $in: categoryIds },
       isActive: true,
+      isHidden: false,
       isAvailable: true,
       deletedAt: null,
     }).sort({ displayOrder: 1, name: 1 });
 
-    // 4. Fetch today's daily stock to attach real-time stock availability status
-    const businessDate = getTodayBusinessDate();
-    const dailyStocks = await DailyStock.find({
-      branchId,
-      businessDate,
-    });
+    let mealPeriods = [];
+    try {
+      mealPeriods = await MealPeriod.find({
+        isActive: true,
+        deletedAt: null,
+      }).sort({ displayOrder: 1 });
+    } catch {
+      mealPeriods = [];
+    }
 
-    const stockMap = new Map();
-    dailyStocks.forEach((stock) => {
-      stockMap.set(stock.foodItemId.toString(), stock);
-    });
+    const now = new Date();
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
+    const currentTotalMinutes = currentHour * 60 + currentMinute;
 
-    // 5. Structure into hierarchical tree: MealPeriod -> Categories -> Food Items
-    const structuredMenu = mealPeriods.map((period) => {
-      const periodCategories = categories
-        .filter((cat) => cat.mealPeriodId.toString() === period._id.toString())
-        .map((cat) => {
-          const catFoodItems = foodItems
-            .filter((food) => food.categoryId.toString() === cat._id.toString())
-            .map((food) => {
-              const stock = stockMap.get(food._id.toString());
-              let stockStatus = 'AVAILABLE';
-              let remainingQuantity = null;
-
-              if (stock) {
-                stockStatus = stock.status;
-                remainingQuantity = stock.remainingQuantity;
-              }
-
-              return {
-                id: food._id,
-                name: food.name,
-                nameEn: food.nameEn || '',
-                nameOm: food.nameOm || '',
-                nameAm: food.nameAm || '',
-                description: food.description,
-                descriptionEn: food.descriptionEn || '',
-                descriptionOm: food.descriptionOm || '',
-                descriptionAm: food.descriptionAm || '',
-                price: food.price,
-                imageUrl: food.imageUrl,
-                preparationTimeMinutes: food.preparationTimeMinutes,
-                stockStatus,
-                remainingQuantity,
-                isSoldOut: stockStatus === 'SOLD_OUT',
-              };
-            });
-
-          return {
-            id: cat._id,
-            name: cat.name,
-            nameEn: cat.nameEn || '',
-            nameOm: cat.nameOm || '',
-            nameAm: cat.nameAm || '',
-            displayOrder: cat.displayOrder,
-            foodItems: catFoodItems,
-          };
-        });
+    const structuredMenu = categories.map((cat) => {
+      const catFoodItems = foodItems
+        .filter((food) => food.categoryId.toString() === cat._id.toString())
+        .map((food) => ({
+          id: food._id,
+          name: food.name,
+          nameEn: food.nameEn || '',
+          nameOm: food.nameOm || '',
+          nameAm: food.nameAm || '',
+          description: food.description,
+          descriptionEn: food.descriptionEn || '',
+          descriptionOm: food.descriptionOm || '',
+          descriptionAm: food.descriptionAm || '',
+          price: food.price,
+          imageUrl: food.imageUrl,
+          preparationTimeMinutes: food.preparationTimeMinutes,
+          tags: food.tags || [],
+          isFeatured: food.isFeatured || false,
+          mealPeriodIds: (food.mealPeriodIds || []).map((id) => String(id)),
+          variantGroups: (food.variantGroups || []).map(vg => ({
+            id: vg._id,
+            name: vg.name,
+            nameEn: vg.nameEn || '',
+            nameOm: vg.nameOm || '',
+            nameAm: vg.nameAm || '',
+            required: vg.required || false,
+            multiSelect: vg.multiSelect || false,
+            maxSelect: vg.maxSelect || 1,
+            options: (vg.options || []).map(opt => ({
+              id: opt._id,
+              name: opt.name,
+              nameEn: opt.nameEn || '',
+              nameOm: opt.nameOm || '',
+              nameAm: opt.nameAm || '',
+              priceModifier: opt.priceModifier || 0,
+              isAvailable: opt.isAvailable !== false,
+            })),
+          })),
+        }));
 
       return {
-        id: period._id,
-        name: period.name,
-        nameEn: period.nameEn || '',
-        nameOm: period.nameOm || '',
-        nameAm: period.nameAm || '',
-        startTime: period.startTime,
-        endTime: period.endTime,
-        displayOrder: period.displayOrder,
-        categories: periodCategories,
+        id: cat._id,
+        name: cat.name,
+        nameEn: cat.nameEn || '',
+        nameOm: cat.nameOm || '',
+        nameAm: cat.nameAm || '',
+        displayOrder: cat.displayOrder,
+        mealPeriodIds: cat.mealPeriodIds || [],
+        isAllDay: cat.isAllDay || false,
+        foodItems: catFoodItems,
       };
     });
 
+    const structuredMealPeriods = mealPeriods.map((mp) => {
+      let [startH, startM] = (mp.startTime || '00:00').split(':').map(Number);
+      let [endH, endM] = (mp.endTime || '23:59').split(':').map(Number);
+      const startMinutes = startH * 60 + startM;
+      const endMinutes = endH * 60 + endM;
+      const isCurrentlyActive = mp.name === 'ALL_DAY'
+        ? true
+        : (startMinutes <= endMinutes
+          ? (currentTotalMinutes >= startMinutes && currentTotalMinutes <= endMinutes)
+          : (currentTotalMinutes >= startMinutes || currentTotalMinutes <= endMinutes));
+
+      return {
+        id: String(mp._id),
+        name: mp.name,
+        nameEn: mp.nameEn || '',
+        nameOm: mp.nameOm || '',
+        nameAm: mp.nameAm || '',
+        startTime: mp.startTime,
+        endTime: mp.endTime,
+        displayOrder: mp.displayOrder,
+        isCurrentlyActive,
+      };
+    });
+
+    const menuCategories = structuredMenu.map((cat) => ({
+      ...cat,
+      id: String(cat.id),
+      mealPeriodIds: (cat.mealPeriodIds || []).map((id) => String(id)),
+    }));
+
+    const itemBelongsToMealPeriod = (item, mealPeriodId, isAllDay) => {
+      if (isAllDay) return true;
+      const itemMpIds = item.mealPeriodIds || [];
+      if (itemMpIds.length === 0) return true;
+      return itemMpIds.includes(mealPeriodId);
+    };
+
+    const categoryBelongsToMealPeriod = (cat, mealPeriodId, isAllDay) => {
+      if (isAllDay) return true;
+      if (cat.isAllDay) return true;
+      if (cat.mealPeriodIds.length === 0) return true;
+      return cat.mealPeriodIds.includes(mealPeriodId);
+    };
+
+    let menu;
+    if (structuredMealPeriods.length === 0) {
+      menu = [
+        {
+          id: 'all',
+          name: 'ALL',
+          nameEn: 'All',
+          nameOm: '',
+          nameAm: '',
+          startTime: '00:00',
+          endTime: '23:59',
+          displayOrder: 0,
+          isCurrentlyActive: true,
+          categories: menuCategories,
+        },
+      ];
+    } else {
+      menu = structuredMealPeriods.map((mp) => {
+        const isAllDay = mp.name === 'ALL_DAY';
+        return {
+          ...mp,
+          categories: menuCategories
+            .filter((cat) => categoryBelongsToMealPeriod(cat, mp.id, isAllDay))
+            .map((cat) => ({
+              ...cat,
+              foodItems: (cat.foodItems || []).filter(
+                (item) => itemBelongsToMealPeriod(item, mp.id, isAllDay)
+              ),
+            })),
+        };
+      });
+    }
+
+    const allDayPeriod = structuredMealPeriods.find((mp) => mp.name === 'ALL_DAY');
+    const activePeriods = structuredMealPeriods.filter(
+      (mp) => mp.isCurrentlyActive && mp.name !== 'ALL_DAY'
+    );
+
     return ApiResponse.success(res, 200, 'Public menu retrieved successfully', {
-      branch: {
-        id: branch._id,
-        name: branch.name,
-        currency: branch.settings?.currency || 'ETB',
-        taxRate: branch.settings?.taxRate || 0.15,
-        openTime: branch.settings?.openTime,
-        closeTime: branch.settings?.closeTime,
+      restaurant: {
+        name: 'Faarees Kaafee fi Restoorraantii',
+        nameAm: 'ፋሪስ ካፌ እና ሪስቶራንት',
+        currency: 'ETB',
+        taxRate: 0.15,
       },
-      menu: structuredMenu,
+      mealPeriods: structuredMealPeriods,
+      activeMealPeriodIds: structuredMealPeriods.length === 0
+        ? ['all']
+        : [
+            ...allDayPeriod ? [allDayPeriod.id] : [],
+            ...activePeriods.filter((mp) => mp.isCurrentlyActive).map((mp) => mp.id),
+          ],
+      menu,
     });
   });
 }

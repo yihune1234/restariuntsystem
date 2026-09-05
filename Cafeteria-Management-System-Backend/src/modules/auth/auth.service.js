@@ -3,21 +3,15 @@ const crypto = require('crypto');
 const { User } = require('../users/user.model');
 const RefreshToken = require('./refresh-token.model');
 const config = require('../../config/env');
-const { getDefaultOrganizationId, getDefaultBranchId } = require('../../config/singleBranch');
 const { UnauthorizedError, BadRequestError, NotFoundError, ForbiddenError } = require('../../utils/errors');
 const logger = require('../../config/logger');
 
 class AuthService {
-  /**
-   * Generate signed JWT access token
-   */
   generateAccessToken(user) {
     const payload = {
       id: user._id.toString(),
       email: user.email,
       role: user.role,
-      organizationId: user.organizationId ? user.organizationId.toString() : null,
-      branchId: user.branchId ? user.branchId.toString() : null,
     };
 
     return jwt.sign(payload, config.jwt.accessSecret, {
@@ -25,16 +19,10 @@ class AuthService {
     });
   }
 
-  /**
-   * Generate secure cryptographically random refresh token
-   */
   generateRefreshToken() {
     return crypto.randomBytes(40).toString('hex');
   }
 
-  /**
-   * Calculate refresh token expiry date
-   */
   getRefreshTokenExpiry() {
     const days = parseInt(config.jwt.refreshExpiresIn, 10) || 7;
     const expiresAt = new Date();
@@ -42,12 +30,6 @@ class AuthService {
     return expiresAt;
   }
 
-  /**
-   * Login staff user
-   *
-   * In single-branch mode, if the user lacks an organizationId or branchId,
-   * the default values are auto-resolved and included in the response.
-   */
   async login({ email, password, ipAddress = '', userAgent = '' }) {
     const user = await User.findOne({ email: email.toLowerCase(), isActive: true }).select('+passwordHash');
 
@@ -63,24 +45,7 @@ class AuthService {
     user.lastLogin = new Date();
     await user.save();
 
-    // Single-branch mode: resolve default org/branch IDs if user lacks them
-    let organizationId = user.organizationId;
-    let branchId = user.branchId;
-
-    if (!organizationId) {
-      const defaultOrgId = await getDefaultOrganizationId();
-      if (defaultOrgId) organizationId = defaultOrgId;
-    }
-    if (!branchId) {
-      const defaultBranchId = await getDefaultBranchId();
-      if (defaultBranchId) branchId = defaultBranchId;
-    }
-
-    const accessToken = this.generateAccessToken({
-      ...user.toObject(),
-      organizationId,
-      branchId,
-    });
+    const accessToken = this.generateAccessToken(user);
     const refreshTokenString = this.generateRefreshToken();
     const expiresAt = this.getRefreshTokenExpiry();
 
@@ -102,15 +67,10 @@ class AuthService {
         name: userObj.name,
         email: userObj.email,
         role: userObj.role,
-        organizationId: organizationId || userObj.organizationId,
-        branchId: branchId || userObj.branchId,
       },
     };
   }
 
-  /**
-   * Rotate and refresh access & refresh tokens
-   */
   async refresh({ refreshToken, ipAddress = '', userAgent = '' }) {
     if (!refreshToken) {
       throw new UnauthorizedError('Refresh token is required', 'MISSING_REFRESH_TOKEN');
@@ -159,9 +119,6 @@ class AuthService {
     };
   }
 
-  /**
-   * Revoke refresh token on logout
-   */
   async logout({ refreshToken }) {
     if (refreshToken) {
       await RefreshToken.updateOne({ token: refreshToken }, { isRevoked: true });
@@ -169,45 +126,16 @@ class AuthService {
     return { success: true };
   }
 
-  /**
-   * Retrieve current user profile
-   *
-   * In single-branch mode, if the user lacks an organizationId or branchId,
-   * the default values are auto-resolved and included in the response.
-   */
   async getMe(userId) {
-    const user = await User.findById(userId)
-      .populate('organizationId', 'name contact settings isActive')
-      .populate('branchId', 'name address phone settings isActive');
+    const user = await User.findById(userId);
 
     if (!user || !user.isActive) {
       throw new NotFoundError('User profile not found or inactive', 'USER_NOT_FOUND');
     }
 
-    // Single-branch mode: resolve defaults if user lacks org/branch
-    let organizationId = user.organizationId;
-    let branchId = user.branchId;
-
-    if (!organizationId) {
-      const defaultOrgId = await getDefaultOrganizationId();
-      if (defaultOrgId) organizationId = defaultOrgId;
-    }
-    if (!branchId) {
-      const defaultBranchId = await getDefaultBranchId();
-      if (defaultBranchId) branchId = defaultBranchId;
-    }
-
-    const userObj = user.toJSON();
-    userObj.organizationId = organizationId || userObj.organizationId;
-    userObj.branchId = branchId || userObj.branchId;
-
-    return userObj;
+    return user.toJSON();
   }
 
-  /**
-   * Update own profile (name, phone, email)
-   * Users can only update their own profile.
-   */
   async updateOwnProfile(userId, updateData) {
     const user = await User.findById(userId);
     if (!user) {
@@ -223,7 +151,6 @@ class AuthService {
       }
     }
 
-    // Email change requires uniqueness check
     if (updateData.email && updateData.email.toLowerCase() !== user.email) {
       const existing = await User.findOne({ email: updateData.email.toLowerCase() });
       if (existing) {
@@ -236,16 +163,11 @@ class AuthService {
       userId,
       { $set: patch },
       { new: true, runValidators: true }
-    )
-      .populate('organizationId', 'name contact settings isActive')
-      .populate('branchId', 'name address phone settings isActive');
+    );
 
     return updated;
   }
 
-  /**
-   * Change user password (requires current password)
-   */
   async changePassword({ userId, currentPassword, newPassword }) {
     const user = await User.findById(userId).select('+passwordHash');
     if (!user) {
@@ -260,23 +182,14 @@ class AuthService {
     user.passwordHash = newPassword;
     await user.save();
 
-    // Revoke all existing refresh tokens for security
     await RefreshToken.updateMany({ userId }, { isRevoked: true });
 
     return { message: 'Password updated successfully. Please log in with your new password.' };
   }
 
-  /**
-   * Admin password reset — OWNER only.
-   * Does NOT require the target user's current password.
-   * Generates a temporary password that the user must change on next login.
-   */
   async adminResetPassword({ targetUserId, newPassword, actor }) {
     if (actor.role !== 'OWNER') {
-      throw new ForbiddenError(
-        'Only the Organization Owner can reset another user\'s password',
-        'ADMIN_RESET_FORBIDDEN'
-      );
+      throw new ForbiddenError('Only the Owner can reset another user\'s password', 'ADMIN_RESET_FORBIDDEN');
     }
 
     const targetUser = await User.findById(targetUserId);
@@ -284,15 +197,10 @@ class AuthService {
       throw new NotFoundError('Target user not found', 'USER_NOT_FOUND');
     }
 
-    // OWNER cannot reset their own password through this endpoint
     if (targetUser._id.toString() === actor.id) {
-      throw new BadRequestError(
-        'To change your own password, use the Change Password feature with your current password',
-        'USE_CHANGE_PASSWORD'
-      );
+      throw new BadRequestError('To change your own password, use the Change Password feature with your current password', 'USE_CHANGE_PASSWORD');
     }
 
-    // OWNER cannot be reset
     if (targetUser.role === 'OWNER') {
       throw new ForbiddenError('Cannot reset the OWNER account password', 'OWNER_RESET_FORBIDDEN');
     }
@@ -300,7 +208,6 @@ class AuthService {
     targetUser.passwordHash = newPassword;
     await targetUser.save();
 
-    // Revoke all sessions for the target user
     await RefreshToken.updateMany({ userId: targetUserId }, { isRevoked: true });
 
     logger.info(`Owner ${actor.id} reset password for user ${targetUserId} (${targetUser.role})`);

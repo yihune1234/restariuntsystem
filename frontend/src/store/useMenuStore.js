@@ -2,116 +2,23 @@ import { create } from "zustand";
 import { toast } from "sonner";
 import axiosInstance from "../axios/axiosInstace";
 
-/**
- * Menu store wired to the real backend.
- *
- * Backend exposes a strict hierarchy: MealPeriod -> Category -> FoodItem.
- * All are branch-scoped.
- *
- *   MealPeriods:
- *     GET/POST/PATCH/DELETE /branches/:branchId/meal-periods
- *   Categories:
- *     GET/POST/PATCH/DELETE /branches/:branchId/categories
- *   Food items:
- *     GET/POST/PATCH/DELETE /branches/:branchId/food-items
- *     GET/PATCH/DELETE /food-items/:foodId
- *     POST /food-items/:foodId/image   (multipart image upload)
- *     DELETE /food-items/:foodId/image
- *
- * For customer browsing (no auth):
- *   GET /public/branches/:branchId/menu   - full structured menu with stock
- */
-export const useMenuStore = create((set) => ({
+export const useMenuStore = create((set, get) => ({
     isLoading: false,
     error: null,
 
-    menu: [],
-    category: [],
-    mealTypes: [],
+    categories: [],
+    foodItems: [],
+    mealPeriods: [],
 
     publicMenu: null,
-    publicBranch: null,
 
-    auditLogs: [],
-    auditPagination: null,
-
-    // --- Meal Periods ---
-
-    getMealPeriodsByBranch: async (branchId, { activeOnly = false } = {}) => {
+    getCategories: async ({ activeOnly = false } = {}) => {
         set({ isLoading: true, error: null });
         try {
-            const res = await axiosInstance.get(
-                `/branches/${branchId}/meal-periods`,
-                { params: activeOnly ? { activeOnly: true } : {} }
-            );
+            const params = activeOnly ? { activeOnly: true } : {};
+            const res = await axiosInstance.get("/categories", { params });
             const list = res.data?.data || [];
-            set({ mealTypes: list, isLoading: false });
-            return list;
-        } catch (err) {
-            set({ isLoading: false, error: err.backendMessage || "Error fetching meal periods" });
-            return [];
-        }
-    },
-
-    createMealPeriod: async (branchId, payload) => {
-        try {
-            const res = await axiosInstance.post(
-                `/branches/${branchId}/meal-periods`,
-                payload
-            );
-            const mp = res.data?.data;
-            set((state) => ({ mealTypes: [...state.mealTypes, mp] }));
-            toast.success("Meal period created");
-            return { success: true, data: mp };
-        } catch (err) {
-            toast.error(err.backendMessage || "Failed to create meal period");
-            return { success: false, message: err.backendMessage };
-        }
-    },
-
-    updateMealPeriod: async (mealPeriodId, payload) => {
-        try {
-            const res = await axiosInstance.patch(`/meal-periods/${mealPeriodId}`, payload);
-            const mp = res.data?.data;
-            set((state) => ({
-                mealTypes: state.mealTypes.map((m) => (m._id === mealPeriodId ? mp : m)),
-            }));
-            toast.success("Meal period updated");
-            return { success: true, data: mp };
-        } catch (err) {
-            toast.error(err.backendMessage || "Failed to update meal period");
-            return { success: false, message: err.backendMessage };
-        }
-    },
-
-    deleteMealPeriod: async (mealPeriodId) => {
-        try {
-            await axiosInstance.delete(`/meal-periods/${mealPeriodId}`);
-            set((state) => ({
-                mealTypes: state.mealTypes.filter((m) => m._id !== mealPeriodId),
-            }));
-            toast.success("Meal period deleted");
-            return { success: true };
-        } catch (err) {
-            toast.error(err.backendMessage || "Failed to delete meal period");
-            return { success: false, message: err.backendMessage };
-        }
-    },
-
-    // --- Categories ---
-
-    getCategoriesByBranch: async (branchId, { mealPeriodId, activeOnly = false } = {}) => {
-        set({ isLoading: true, error: null });
-        try {
-            const params = {};
-            if (mealPeriodId) params.mealPeriodId = mealPeriodId;
-            if (activeOnly) params.activeOnly = true;
-            const res = await axiosInstance.get(
-                `/branches/${branchId}/categories`,
-                { params }
-            );
-            const list = res.data?.data || [];
-            set({ category: list, isLoading: false });
+            set({ categories: list, isLoading: false });
             return list;
         } catch (err) {
             set({ isLoading: false, error: err.backendMessage || "Error fetching categories" });
@@ -119,14 +26,19 @@ export const useMenuStore = create((set) => ({
         }
     },
 
-    createCategory: async (branchId, payload) => {
+    getCategoriesByBranch: async (branchId, { mealPeriodId } = {}) => {
+        return get().getCategories({ activeOnly: true });
+    },
+
+    getMealPeriodsByBranch: async (branchId) => {
+        return [];
+    },
+
+    createCategory: async (payload) => {
         try {
-            const res = await axiosInstance.post(
-                `/branches/${branchId}/categories`,
-                payload
-            );
+            const res = await axiosInstance.post("/categories", payload);
             const cat = res.data?.data;
-            set((state) => ({ category: [...state.category, cat] }));
+            set((state) => ({ categories: [...state.categories, cat] }));
             toast.success("Category created");
             return { success: true, data: cat };
         } catch (err) {
@@ -140,7 +52,7 @@ export const useMenuStore = create((set) => ({
             const res = await axiosInstance.patch(`/categories/${categoryId}`, payload);
             const cat = res.data?.data;
             set((state) => ({
-                category: state.category.map((c) => (c._id === categoryId ? cat : c)),
+                categories: state.categories.map((c) => (c._id === categoryId ? cat : c)),
             }));
             toast.success("Category updated");
             return { success: true, data: cat };
@@ -150,11 +62,98 @@ export const useMenuStore = create((set) => ({
         }
     },
 
+    toggleCategoryActive: async (categoryId) => {
+        const prev = get().categories.find((c) => c._id === categoryId || c.id === categoryId);
+        if (!prev) return { success: false };
+        const nextVal = prev.isActive === false;
+        set((state) => ({
+            categories: state.categories.map((c) =>
+                (c._id === categoryId || c.id === categoryId) ? { ...c, isActive: nextVal } : c
+            ),
+        }));
+        try {
+            const res = await axiosInstance.patch(`/categories/${categoryId}`, { isActive: nextVal });
+            const cat = res.data?.data;
+            set((state) => ({
+                categories: state.categories.map((c) =>
+                    (c._id === categoryId || c.id === categoryId) ? cat : c
+                ),
+            }));
+            return { success: true, data: cat };
+        } catch (err) {
+            set((state) => ({
+                categories: state.categories.map((c) =>
+                    (c._id === categoryId || c.id === categoryId) ? prev : c
+                ),
+            }));
+            toast.error(err.backendMessage || "Failed to update category");
+            return { success: false, message: err.backendMessage };
+        }
+    },
+
+    toggleCategoryHidden: async (categoryId) => {
+        const prev = get().categories.find((c) => c._id === categoryId || c.id === categoryId);
+        if (!prev) return { success: false };
+        const nextVal = !prev.isHidden;
+        set((state) => ({
+            categories: state.categories.map((c) =>
+                (c._id === categoryId || c.id === categoryId) ? { ...c, isHidden: nextVal } : c
+            ),
+        }));
+        try {
+            const res = await axiosInstance.patch(`/categories/${categoryId}`, { isHidden: nextVal });
+            const cat = res.data?.data;
+            set((state) => ({
+                categories: state.categories.map((c) =>
+                    (c._id === categoryId || c.id === categoryId) ? cat : c
+                ),
+            }));
+            return { success: true, data: cat };
+        } catch (err) {
+            set((state) => ({
+                categories: state.categories.map((c) =>
+                    (c._id === categoryId || c.id === categoryId) ? prev : c
+                ),
+            }));
+            toast.error(err.backendMessage || "Failed to update category visibility");
+            return { success: false, message: err.backendMessage };
+        }
+    },
+
+    toggleCategoryAllDay: async (categoryId) => {
+        const prev = get().categories.find((c) => c._id === categoryId || c.id === categoryId);
+        if (!prev) return { success: false };
+        const nextVal = !prev.isAllDay;
+        set((state) => ({
+            categories: state.categories.map((c) =>
+                (c._id === categoryId || c.id === categoryId) ? { ...c, isAllDay: nextVal } : c
+            ),
+        }));
+        try {
+            const res = await axiosInstance.patch(`/categories/${categoryId}`, { isAllDay: nextVal });
+            const cat = res.data?.data;
+            set((state) => ({
+                categories: state.categories.map((c) =>
+                    (c._id === categoryId || c.id === categoryId) ? cat : c
+                ),
+            }));
+            return { success: true, data: cat };
+        } catch (err) {
+            set((state) => ({
+                categories: state.categories.map((c) =>
+                    (c._id === categoryId || c.id === categoryId) ? prev : c
+                ),
+            }));
+            toast.error(err.backendMessage || "Failed to update All-Day status");
+            return { success: false, message: err.backendMessage };
+        }
+    },
+
     deleteCategory: async (categoryId) => {
         try {
             await axiosInstance.delete(`/categories/${categoryId}`);
             set((state) => ({
-                category: state.category.filter((c) => c._id !== categoryId),
+                categories: state.categories.filter((c) => c._id !== categoryId),
             }));
             toast.success("Category deleted");
             return { success: true };
@@ -164,29 +163,25 @@ export const useMenuStore = create((set) => ({
         }
     },
 
-    // --- Food Items ---
-
-    getFoodItemsByBranch: async (
-        branchId,
-        { categoryId, availableOnly = false, activeOnly = false } = {}
-    ) => {
+    getFoodItems: async ({ categoryId, availableOnly = false, activeOnly = false } = {}) => {
         set({ isLoading: true, error: null });
         try {
             const params = {};
             if (categoryId) params.categoryId = categoryId;
             if (availableOnly) params.availableOnly = true;
             if (activeOnly) params.activeOnly = true;
-            const res = await axiosInstance.get(
-                `/branches/${branchId}/food-items`,
-                { params }
-            );
+            const res = await axiosInstance.get("/food-items", { params });
             const list = res.data?.data || [];
-            set({ menu: list, isLoading: false });
+            set({ foodItems: list, isLoading: false });
             return list;
         } catch (err) {
             set({ isLoading: false, error: err.backendMessage || "Error fetching food items" });
             return [];
         }
+    },
+
+    getFoodItemsByBranch: async (branchId, { categoryId, availableOnly = false } = {}) => {
+        return get().getFoodItems({ categoryId, availableOnly });
     },
 
     getFoodItemById: async (foodId) => {
@@ -199,14 +194,11 @@ export const useMenuStore = create((set) => ({
         }
     },
 
-    createFoodItem: async (branchId, payload) => {
+    createFoodItem: async (payload) => {
         try {
-            const res = await axiosInstance.post(
-                `/branches/${branchId}/food-items`,
-                payload
-            );
+            const res = await axiosInstance.post("/food-items", payload);
             const item = res.data?.data;
-            set((state) => ({ menu: [...state.menu, item] }));
+            set((state) => ({ foodItems: [...state.foodItems, item] }));
             toast.success("Food item created");
             return { success: true, data: item };
         } catch (err) {
@@ -220,7 +212,7 @@ export const useMenuStore = create((set) => ({
             const res = await axiosInstance.patch(`/food-items/${foodId}`, payload);
             const item = res.data?.data;
             set((state) => ({
-                menu: state.menu.map((m) => (m._id === foodId ? item : m)),
+                foodItems: state.foodItems.map((m) => (m._id === foodId ? item : m)),
             }));
             toast.success("Food item updated");
             return { success: true, data: item };
@@ -230,11 +222,98 @@ export const useMenuStore = create((set) => ({
         }
     },
 
+    toggleItemAvailability: async (foodId) => {
+        const prev = get().foodItems.find((i) => i._id === foodId || i.id === foodId);
+        if (!prev) return { success: false };
+        const nextVal = prev.isAvailable === false;
+        set((state) => ({
+            foodItems: state.foodItems.map((i) =>
+                (i._id === foodId || i.id === foodId) ? { ...i, isAvailable: nextVal } : i
+            ),
+        }));
+        try {
+            const res = await axiosInstance.patch(`/food-items/${foodId}`, { isAvailable: nextVal });
+            const item = res.data?.data;
+            set((state) => ({
+                foodItems: state.foodItems.map((i) =>
+                    (i._id === foodId || i.id === foodId) ? item : i
+                ),
+            }));
+            return { success: true, data: item };
+        } catch (err) {
+            set((state) => ({
+                foodItems: state.foodItems.map((i) =>
+                    (i._id === foodId || i.id === foodId) ? prev : i
+                ),
+            }));
+            toast.error(err.backendMessage || "Failed to update availability");
+            return { success: false, message: err.backendMessage };
+        }
+    },
+
+    toggleItemHidden: async (foodId) => {
+        const prev = get().foodItems.find((i) => i._id === foodId || i.id === foodId);
+        if (!prev) return { success: false };
+        const nextVal = !prev.isHidden;
+        set((state) => ({
+            foodItems: state.foodItems.map((i) =>
+                (i._id === foodId || i.id === foodId) ? { ...i, isHidden: nextVal } : i
+            ),
+        }));
+        try {
+            const res = await axiosInstance.patch(`/food-items/${foodId}`, { isHidden: nextVal });
+            const item = res.data?.data;
+            set((state) => ({
+                foodItems: state.foodItems.map((i) =>
+                    (i._id === foodId || i.id === foodId) ? item : i
+                ),
+            }));
+            return { success: true, data: item };
+        } catch (err) {
+            set((state) => ({
+                foodItems: state.foodItems.map((i) =>
+                    (i._id === foodId || i.id === foodId) ? prev : i
+                ),
+            }));
+            toast.error(err.backendMessage || "Failed to update visibility");
+            return { success: false, message: err.backendMessage };
+        }
+    },
+
+    toggleItemFeatured: async (foodId) => {
+        const prev = get().foodItems.find((i) => i._id === foodId || i.id === foodId);
+        if (!prev) return { success: false };
+        const nextVal = !prev.isFeatured;
+        set((state) => ({
+            foodItems: state.foodItems.map((i) =>
+                (i._id === foodId || i.id === foodId) ? { ...i, isFeatured: nextVal } : i
+            ),
+        }));
+        try {
+            const res = await axiosInstance.patch(`/food-items/${foodId}`, { isFeatured: nextVal });
+            const item = res.data?.data;
+            set((state) => ({
+                foodItems: state.foodItems.map((i) =>
+                    (i._id === foodId || i.id === foodId) ? item : i
+                ),
+            }));
+            return { success: true, data: item };
+        } catch (err) {
+            set((state) => ({
+                foodItems: state.foodItems.map((i) =>
+                    (i._id === foodId || i.id === foodId) ? prev : i
+                ),
+            }));
+            toast.error(err.backendMessage || "Failed to update featured status");
+            return { success: false, message: err.backendMessage };
+        }
+    },
+
     deleteFoodItem: async (foodId) => {
         try {
             await axiosInstance.delete(`/food-items/${foodId}`);
             set((state) => ({
-                menu: state.menu.filter((m) => m._id !== foodId),
+                foodItems: state.foodItems.filter((m) => m._id !== foodId),
             }));
             toast.success("Food item deleted");
             return { success: true };
@@ -272,19 +351,32 @@ export const useMenuStore = create((set) => ({
         }
     },
 
-    // --- Public menu (no auth, used by customer pages) ---
+    reorderCategories: async (orders) => {
+        try {
+            await axiosInstance.patch("/categories/reorder", { orders });
+            return { success: true };
+        } catch (err) {
+            toast.error(err.backendMessage || "Reorder failed");
+            return { success: false };
+        }
+    },
 
-    fetchPublicMenu: async (branchId, mealPeriodId) => {
+    reorderFoodItems: async (orders) => {
+        try {
+            await axiosInstance.patch("/food-items/reorder", { orders });
+            return { success: true };
+        } catch (err) {
+            toast.error(err.backendMessage || "Reorder failed");
+            return { success: false };
+        }
+    },
+
+    fetchPublicMenu: async () => {
         set({ isLoading: true, error: null });
         try {
-            const params = mealPeriodId ? { mealPeriodId } : {};
-            const res = await axiosInstance.get(
-                `/public/branches/${branchId}/menu`,
-                { params }
-            );
+            const res = await axiosInstance.get("/public/menu");
             const data = res.data?.data || {};
             set({
-                publicBranch: data.branch,
                 publicMenu: data.menu || [],
                 isLoading: false,
             });
@@ -295,26 +387,59 @@ export const useMenuStore = create((set) => ({
         }
     },
 
-    // --- Audit Logs (Owner/Manager activity tracking) ---
-
-    fetchAuditLogs: async (branchId, { action, entityType, userId, page = 1, limit = 50 } = {}) => {
+    getMealPeriods: async ({ activeOnly = false } = {}) => {
         set({ isLoading: true, error: null });
         try {
-            const params = { page, limit };
-            if (action) params.action = action;
-            if (entityType) params.entityType = entityType;
-            if (userId) params.userId = userId;
-            const res = await axiosInstance.get(
-                `/branches/${branchId}/audit-logs`,
-                { params }
-            );
-            const logs = res.data?.data || [];
-            const pagination = res.data?.meta || null;
-            set({ auditLogs: logs, auditPagination: pagination, isLoading: false });
-            return { logs, pagination };
+            const params = activeOnly ? { activeOnly: true } : {};
+            const res = await axiosInstance.get("/meal-periods", { params });
+            const list = res.data?.data || [];
+            set({ mealPeriods: list, isLoading: false });
+            return list;
         } catch (err) {
-            set({ isLoading: false, error: err.backendMessage || "Failed to load audit logs" });
-            return { logs: [], pagination: null };
+            set({ isLoading: false, error: err.backendMessage || "Error fetching meal periods" });
+            return [];
+        }
+    },
+
+    createMealPeriod: async (payload) => {
+        try {
+            const res = await axiosInstance.post("/meal-periods", payload);
+            const mp = res.data?.data;
+            set((state) => ({ mealPeriods: [...state.mealPeriods, mp] }));
+            toast.success("Meal type created");
+            return { success: true, data: mp };
+        } catch (err) {
+            toast.error(err.backendMessage || "Failed to create meal type");
+            return { success: false, message: err.backendMessage };
+        }
+    },
+
+    updateMealPeriod: async (id, payload) => {
+        try {
+            const res = await axiosInstance.patch(`/meal-periods/${id}`, payload);
+            const mp = res.data?.data;
+            set((state) => ({
+                mealPeriods: state.mealPeriods.map((m) => (m._id === id ? mp : m)),
+            }));
+            toast.success("Meal type updated");
+            return { success: true, data: mp };
+        } catch (err) {
+            toast.error(err.backendMessage || "Failed to update meal type");
+            return { success: false, message: err.backendMessage };
+        }
+    },
+
+    deleteMealPeriod: async (id) => {
+        try {
+            await axiosInstance.delete(`/meal-periods/${id}`);
+            set((state) => ({
+                mealPeriods: state.mealPeriods.filter((m) => m._id !== id),
+            }));
+            toast.success("Meal type deleted");
+            return { success: true };
+        } catch (err) {
+            toast.error(err.backendMessage || "Failed to delete meal type");
+            return { success: false, message: err.backendMessage };
         }
     },
 }));

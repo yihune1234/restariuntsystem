@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useIsMobile } from "@/hooks/useIsMobile";
 import { useUserStore } from "@/store/useUserStore";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -102,6 +103,7 @@ const OrderTimeline = ({ order }) => {
 };
 
 const OrderDetailsDrawer = ({ order, open, onClose }) => {
+  const isMobile = useIsMobile();
   const { staff, fetchStaffByBranch } = useUserStore();
 
   const statusConfig = ORDER_STATUS_CONFIG[order?.orderStatus] || ORDER_STATUS_CONFIG.WAITING_FOR_PAYMENT;
@@ -133,8 +135,12 @@ const OrderDetailsDrawer = ({ order, open, onClose }) => {
   if (!order) return null;
 
   return (
-    <Drawer open={open} onOpenChange={(isOpen) => !isOpen && onClose()} direction="right">
-      <DrawerContent className="max-w-md">
+    <Drawer
+      open={open}
+      onOpenChange={(isOpen) => !isOpen && onClose()}
+      direction={isMobile ? "bottom" : "right"}
+    >
+      <DrawerContent className={isMobile ? "max-h-[85vh]" : "max-w-md sm:max-w-md"}>
         <DrawerHeader>
           <div className="flex items-center justify-between">
             <div>
@@ -320,7 +326,7 @@ const OrderDetailsDrawer = ({ order, open, onClose }) => {
           </div>
         </ScrollArea>
 
-        <DrawerFooter>
+<DrawerFooter>
           <Button variant="outline" onClick={onClose}>Close</Button>
         </DrawerFooter>
       </DrawerContent>

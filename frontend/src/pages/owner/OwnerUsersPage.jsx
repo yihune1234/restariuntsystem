@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from "react";
-import { useBranchStore } from "@/store/useBranchStore";
 import useUserStore from "@/store/useUserStore";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
-import { Plus, User, Trash2, Loader2, Edit, RefreshCw } from "lucide-react";
+import { Plus, User, Trash2, Edit, RefreshCw } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
@@ -16,39 +15,26 @@ const ALL_ROLES = [
   { key: "MANAGER", label: "Managers", color: "bg-blue-100 text-blue-700" },
   { key: "CASHIER", label: "Cashiers", color: "bg-green-100 text-green-700" },
   { key: "KITCHEN", label: "Kitchen", color: "bg-orange-100 text-orange-700" },
-  { key: "WAITER", label: "Waiters", color: "bg-pink-100 text-pink-700" },
 ];
 
 const OwnerUsersPage = () => {
-  const { branches, fetchBranches } = useBranchStore();
-  const { staff, fetchStaffByBranch, createStaff, updateStaff, deleteStaff, isLoading } = useUserStore();
+  const { staff, fetchStaff, createStaff, updateStaff, deleteStaff, isLoading } = useUserStore();
 
   const [activeTab, setActiveTab] = useState("MANAGER");
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
-  const [form, setForm] = useState({ name: "", email: "", phone: "", role: "MANAGER", branchId: "", password: "" });
+  const [form, setForm] = useState({ name: "", email: "", phone: "", role: "MANAGER", password: "" });
   const [busy, setBusy] = useState(false);
 
-  // In single-branch mode, use the first branch automatically
-  const isSingleBranch = branches.length <= 1;
-  const activeBranchId = isSingleBranch && branches.length > 0 ? branches[0]._id : null;
-
   useEffect(() => {
-    fetchBranches();
-  }, [fetchBranches]);
-
-  useEffect(() => {
-    if (activeBranchId) {
-      fetchStaffByBranch(activeBranchId);
-    }
-  }, [activeBranchId, fetchStaffByBranch]);
+    fetchStaff();
+  }, [fetchStaff]);
 
   const filteredStaff = staff.filter((s) => {
     if (activeTab === "OWNER" && s.role !== "OWNER") return false;
     if (activeTab === "MANAGER" && s.role !== "MANAGER") return false;
     if (activeTab === "CASHIER" && s.role !== "CASHIER") return false;
     if (activeTab === "KITCHEN" && s.role !== "KITCHEN") return false;
-    if (activeTab === "WAITER" && s.role !== "WAITER") return false;
     return true;
   });
 
@@ -59,37 +45,37 @@ const OwnerUsersPage = () => {
 
   const openCreate = () => {
     setEditingId(null);
-    setForm({ name: "", email: "", phone: "", role: activeTab === "OWNER" ? "MANAGER" : activeTab, branchId: activeBranchId || "", password: "" });
+    setForm({ name: "", email: "", phone: "", role: activeTab === "OWNER" ? "MANAGER" : activeTab, password: "" });
     setOpen(true);
   };
 
   const openEdit = (s) => {
     setEditingId(s._id);
-    setForm({ name: s.name, email: s.email, phone: s.phone || "", role: s.role, branchId: s.branchId?._id || s.branchId || "", password: "" });
+    setForm({ name: s.name, email: s.email, phone: s.phone || "", role: s.role, password: "" });
     setOpen(true);
   };
 
   const handleSave = async () => {
     if (!form.name || !form.email) return toast.error("Name and email required");
-    if (!form.branchId) return toast.error("Branch is required");
+    if (!editingId && !form.password) return toast.error("Password is required for new staff");
     setBusy(true);
     let res;
     if (editingId) {
       res = await updateStaff(editingId, { name: form.name, email: form.email, phone: form.phone, role: form.role });
     } else {
-      res = await createStaff(form.branchId, { name: form.name, email: form.email, phone: form.phone, role: form.role, password: form.password });
+      res = await createStaff({ name: form.name, email: form.email, phone: form.phone, role: form.role, password: form.password });
     }
     setBusy(false);
     if (res.success) {
       setOpen(false);
-      fetchStaffByBranch(activeBranchId);
+      fetchStaff();
     }
   };
 
   const handleDelete = async (id) => {
     if (!confirm("Deactivate this user?")) return;
     const res = await deleteStaff(id);
-    if (res.success) fetchStaffByBranch(activeBranchId);
+    if (res.success) fetchStaff();
   };
 
   const getRoleColor = (role) => ALL_ROLES.find((r) => r.key === role)?.color || "bg-gray-100 text-gray-700";
@@ -102,19 +88,7 @@ const OwnerUsersPage = () => {
           <p className="text-sm text-muted-foreground">Manage all staff</p>
         </div>
         <div className="flex items-center gap-2">
-          {!isSingleBranch && (
-            <select
-              value={activeBranchId || ""}
-              onChange={(e) => fetchStaffByBranch(e.target.value)}
-              className="h-9 rounded-md border bg-transparent px-3 text-sm"
-            >
-              <option value="">Select Branch</option>
-              {branches.map((b) => (
-                <option key={b._id} value={b._id}>{b.name}</option>
-              ))}
-            </select>
-          )}
-          <Button variant="outline" size="sm" onClick={() => fetchStaffByBranch(activeBranchId)}>
+          <Button variant="outline" size="sm" onClick={() => fetchStaff()}>
             <RefreshCw className="size-4" />
           </Button>
           <Button size="sm" onClick={openCreate}>
@@ -123,7 +97,6 @@ const OwnerUsersPage = () => {
         </div>
       </div>
 
-      {/* Role Tabs */}
       <div className="flex gap-1 border-b overflow-x-auto">
         {counts.map((r) => (
           <button
@@ -142,7 +115,6 @@ const OwnerUsersPage = () => {
         ))}
       </div>
 
-      {/* Staff Grid */}
       {isLoading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {[...Array(6)].map((_, i) => <Skeleton key={i} className="h-28" />)}
@@ -158,32 +130,25 @@ const OwnerUsersPage = () => {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {filteredStaff.map((s) => (
-            <Card key={s._id} className="hover:shadow-md transition-shadow">
+            <Card key={s._id}>
               <CardContent className="p-4">
-                <div className="flex items-start justify-between mb-2">
+                <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="size-10 rounded-full bg-muted flex items-center justify-center">
-                      <User className="size-5 text-muted-foreground" />
+                    <div className={`size-10 rounded-full ${getRoleColor(s.role)} flex items-center justify-center font-bold text-sm`}>
+                      {s.name?.charAt(0)?.toUpperCase() || "?"}
                     </div>
                     <div>
                       <p className="font-semibold">{s.name}</p>
-                      <p className="text-xs text-muted-foreground truncate max-w-[150px]">{s.email}</p>
+                      <p className="text-xs text-muted-foreground">{s.email}</p>
                     </div>
                   </div>
+                  <Badge variant="outline" className="text-xs">{s.role}</Badge>
                 </div>
-                <div className="flex items-center justify-between mt-3 pt-3 border-t">
-                  <Badge className={cn("text-xs capitalize", s.isActive ? getRoleColor(s.role) : "bg-gray-100 text-gray-400")}>
-                    {s.isActive ? s.role : "Inactive"}
-                  </Badge>
+                <div className="flex items-center justify-between mt-3">
+                  <span className="text-xs text-muted-foreground">{s.isActive ? "Active" : "Inactive"}</span>
                   <div className="flex gap-1">
-                    <Button variant="ghost" size="icon-sm" onClick={() => openEdit(s)} title="Edit">
-                      <Edit className="size-4" />
-                    </Button>
-                    {s.isActive && s.role !== "OWNER" && (
-                      <Button variant="ghost" size="icon-sm" onClick={() => handleDelete(s._id)} title="Deactivate">
-                        <Trash2 className="size-4 text-red-500" />
-                      </Button>
-                    )}
+                    <Button size="sm" variant="ghost" onClick={() => openEdit(s)}><Edit className="size-3" /></Button>
+                    <Button size="sm" variant="ghost" onClick={() => handleDelete(s._id)}><Trash2 className="size-3 text-red-500" /></Button>
                   </div>
                 </div>
               </CardContent>
@@ -192,51 +157,46 @@ const OwnerUsersPage = () => {
         </div>
       )}
 
-      {/* Dialog */}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{editingId ? "Edit Staff" : "Add New Staff"}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-3">
-            <Input placeholder="Full Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-            <Input placeholder="Email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-            <Input placeholder="Phone" type="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-            <select
-              value={form.role}
-              onChange={(e) => setForm({ ...form, role: e.target.value })}
-              className="w-full h-9 rounded-md border bg-transparent px-2 text-sm"
-            >
-              {ALL_ROLES.filter((r) => r.key !== "OWNER").map((r) => (
-                <option key={r.key} value={r.key}>{r.label}</option>
-              ))}
-            </select>
-            {!isSingleBranch && (
+          <div className="space-y-4 py-4">
+            <div>
+              <label className="text-sm font-medium">Name</label>
+              <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="mt-1" />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Email</label>
+              <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="mt-1" />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Phone</label>
+              <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="mt-1" />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Role</label>
               <select
-                value={form.branchId}
-                onChange={(e) => setForm({ ...form, branchId: e.target.value })}
-                className="w-full h-9 rounded-md border bg-transparent px-2 text-sm"
+                value={form.role}
+                onChange={(e) => setForm({ ...form, role: e.target.value })}
+                className="w-full h-10 mt-1 rounded-md border bg-transparent px-3 text-sm"
               >
-                <option value="">Select Branch</option>
-                {branches.map((b) => (
-                  <option key={b._id} value={b._id}>{b.name}</option>
+                {ALL_ROLES.filter(r => r.key !== "OWNER").map((r) => (
+                  <option key={r.key} value={r.key}>{r.label}</option>
                 ))}
               </select>
-            )}
+            </div>
             {!editingId && (
-              <Input
-                placeholder="Password (min 6 chars)"
-                type="password"
-                value={form.password}
-                onChange={(e) => setForm({ ...form, password: e.target.value })}
-              />
+              <div>
+                <label className="text-sm font-medium">Password</label>
+                <Input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className="mt-1" />
+              </div>
             )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button onClick={handleSave} disabled={busy}>
-              {busy ? <Loader2 className="animate-spin size-4" /> : (editingId ? "Update" : "Create")}
-            </Button>
+            <Button onClick={handleSave} disabled={busy}>{busy ? "Saving..." : "Save"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

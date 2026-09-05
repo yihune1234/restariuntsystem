@@ -5,24 +5,35 @@ import { toast } from "sonner";
 import { connectSocket, getSocket, trackOrder } from "../config/socket.config";
 import { applyDefaultBrand, DEFAULT_RESTAURANT } from "../config/restaurant";
 
-/**
- * Public customer experience - NO account, NO login, NO phone required.
- *
- * Backend flow (QR paperless ordering):
- *   1. Customer scans QR -> /customer/qr/:branchId?token=<qrToken>
- *   2. Frontend POSTs /customer-sessions { qrToken } -> gets sessionToken
- *   3. Frontend stores sessionToken in localStorage + sends x-session-token header
- *   4. GET /public/branches/:branchId/menu  - menu tree w/ live stock
- *   5. POST /orders with header x-session-token -> order created (UNPAID)
- *   6. Cashier verifies code, confirms cash/card -> order CONFIRMED -> kitchen cooks
- *   7. Customer tracks via /orders/:id (or socket 'order:track')
- */
+let menuListenersRegistered = false;
+let menuRefreshTimer = null;
+
+const scheduleMenuRefresh = (refetch) => {
+  if (menuRefreshTimer) clearTimeout(menuRefreshTimer);
+  menuRefreshTimer = setTimeout(() => {
+    menuRefreshTimer = null;
+    refetch();
+  }, 350);
+};
+
+const listenForMenuUpdates = (refetch) => {
+  const socket = getSocket();
+  if (!menuListenersRegistered) {
+    socket.on("menu:item-updated", () => scheduleMenuRefresh(refetch));
+    socket.on("menu:item-created", () => scheduleMenuRefresh(refetch));
+    socket.on("menu:category-updated", () => scheduleMenuRefresh(refetch));
+    menuListenersRegistered = true;
+  }
+  if (!socket.connected) socket.connect();
+};
+
 export const useCustomerStore = create(
   persist(
     (set, get) => ({
       branch: null,
       menuTree: [],
       flatItems: [],
+      activeMealPeriodIds: [],
       cart: [],
       lastPlacedOrder: null,
       session: null,
@@ -32,21 +43,13 @@ export const useCustomerStore = create(
       customerName: null,
       customerNote: '',
 
-      /**
-       * Resolve the real branch for a table QR token via the public endpoint
-       * (GET /public/qr/:qrToken -> table + branch). Used as a self-healing
-       * fallback when a printed QR encodes the token where the branchId belongs,
-       * or when the customer lands on the menu with an unknown branch id.
-       */
       resolveBranchFromToken: async (qrToken) => {
         if (!qrToken) return null;
         try {
           const res = await axiosInstance.get(`/public/qr/${qrToken}`);
           const data = res.data?.data || {};
-          const branchId = data.branch?.id || data.branchId;
-          if (!branchId) return null;
-          set({ branch: applyDefaultBrand(data.branch || get().branch) });
-          return { branchId, table: data.table || data, tableNumber: data.tableNumber };
+          set({ branch: applyDefaultBrand(data) });
+          return { branchId: data.tableId, table: data, tableNumber: data.tableNumber };
         } catch (err) {
           return null;
         }
@@ -63,7 +66,7 @@ export const useCustomerStore = create(
           }
           set({
             session: data,
-            branch: applyDefaultBrand(data.branch),
+            branch: applyDefaultBrand(data.branch || { name: DEFAULT_RESTAURANT.nameEn, nameAm: DEFAULT_RESTAURANT.nameAm }),
             canOrder: true,
             isLoading: false,
           });
@@ -92,37 +95,41 @@ export const useCustomerStore = create(
         });
       },
 
-      fetchMenu: async (branchId, mealPeriodId) => {
-        if (!branchId) return null;
+      fetchMenu: async () => {
         set({ isLoading: true, error: null });
         try {
-          const params = mealPeriodId ? { mealPeriodId } : {};
-          const res = await axiosInstance.get(`/public/branches/${branchId}/menu`, { params });
+          const res = await axiosInstance.get("/public/menu");
           const data = res.data?.data || {};
           const menuTree = data.menu || [];
           const flat = [];
+          const seen = new Set();
           menuTree.forEach((mp) => {
             (mp.categories || []).forEach((cat) => {
               const catId = String(cat._id || cat.id);
-              (cat.foodItems || []).forEach((f) =>
-                // Tag each flattened item with its category so the
-                // per-category filter in Menu.jsx can match correctly.
-                flat.push({ ...f, categoryId: catId })
-              );
+              (cat.foodItems || []).forEach((f) => {
+                const fid = String(f.id ?? f._id);
+                if (seen.has(fid)) return;
+                seen.add(fid);
+                flat.push({ ...f, categoryId: catId });
+              });
             });
           });
           set({
-            branch: applyDefaultBrand(data.branch || get().branch),
+            branch: applyDefaultBrand(data.restaurant ? { name: data.restaurant.name, nameAm: data.restaurant.nameAm } : null),
             menuTree,
             flatItems: flat,
+            activeMealPeriodIds: (data.activeMealPeriodIds || []).map(String),
             isLoading: false,
           });
+          connectSocket();
+          listenForMenuUpdates(() => get().fetchMenu());
           return data;
         } catch (err) {
           set({
             branch: applyDefaultBrand(null),
             menuTree: [],
             flatItems: [],
+            activeMealPeriodIds: [],
             isLoading: false,
             error: err.backendMessage || "Failed to load menu. Please ensure the backend is running.",
           });
@@ -134,10 +141,25 @@ export const useCustomerStore = create(
         const { cart } = get();
         const id = item.id || item._id || item.foodItemId;
         const existing = cart.find((c) => c.foodItemId === id);
+        const qty = item.quantity || 1;
+        const variantTotal = item.selectedVariants
+          ? Object.values(item.selectedVariants).reduce((s, o) => s + (o.priceModifier || 0), 0)
+          : 0;
+        const basePrice = Number(item.price || 0);
+        const totalUnitPrice = basePrice + variantTotal;
         if (existing) {
           set({
             cart: cart.map((c) =>
-              c.foodItemId === id ? { ...c, quantity: c.quantity + 1 } : c
+              c.foodItemId === id
+                ? {
+                    ...c,
+                    quantity: c.quantity + qty,
+                    unitPrice: totalUnitPrice,
+                    variantTotal,
+                    selectedVariants: item.selectedVariants || c.selectedVariants,
+                    specialInstructions: item.specialInstructions || c.specialInstructions,
+                  }
+                : c
             ),
           });
         } else {
@@ -146,9 +168,12 @@ export const useCustomerStore = create(
               ...cart,
               {
                 foodItemId: id,
-                foodName: item.name,
-                unitPrice: item.price,
-                quantity: 1,
+                foodName: item.name || item.foodName,
+                unitPrice: totalUnitPrice,
+                quantity: qty,
+                variantTotal,
+                selectedVariants: item.selectedVariants || {},
+                specialInstructions: item.specialInstructions || "",
               },
             ],
           });
@@ -173,7 +198,7 @@ export const useCustomerStore = create(
       setCustomerName: (name) => set({ customerName: name }),
       setCustomerNote: (note) => set({ customerNote: note }),
       getCartTotal: () =>
-        get().cart.reduce((s, c) => s + (c.unitPrice || 0) * c.quantity, 0),
+        get().cart.reduce((s, c) => s + ((c.unitPrice || 0) + (c.variantTotal || 0)) * c.quantity, 0),
 
       placeOrder: async () => {
         const { cart, session, canOrder, customerName, customerNote } = get();
@@ -194,7 +219,6 @@ export const useCustomerStore = create(
             notes: c.notes || "",
           }));
           const res = await axiosInstance.post("/orders", {
-            branchId: session.branchId,
             tableId: session.tableId,
             customerName: customerName || null,
             customerNote: (customerNote || "").slice(0, 500),
@@ -222,11 +246,6 @@ export const useCustomerStore = create(
         }
       },
 
-      /**
-       * PUBLIC fallback: track an order by its 4-digit pickup code (no auth).
-       * Used when the tracking link is lost. Requires socket re-tracking so
-       * live updates continue for the resolved order.
-       */
       findOrderByCode: async (code) => {
         try {
           const res = await axiosInstance.get(`/orders/public/code/${code}`);

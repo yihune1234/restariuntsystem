@@ -104,15 +104,13 @@ const KitchenOrderCard = ({ order, stationFilter }) => {
   );
 };
 
-const ManagerKitchenBoard = ({ branchId }) => {
-  const { orders, getBranchOrders, isLoading } = useOrderStore();
+const ManagerKitchenBoard = () => {
+  const { orders, getOrders, isLoading } = useOrderStore();
   const [stationFilter, setStationFilter] = useState("all");
 
   useEffect(() => {
-    if (branchId) {
-      getBranchOrders(branchId, { limit: 100 });
-    }
-  }, [branchId, getBranchOrders]);
+    getOrders({ limit: 100 });
+  }, [getOrders]);
 
   const preparingOrders = orders.filter(
     (o) => o.orderStatus === "PREPARING" || o.orderStatus === "CONFIRMED"

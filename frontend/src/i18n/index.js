@@ -22,8 +22,8 @@ const messages = {
 // Default English messages populated below
 messages.en = {
   // Common / app
-  "app.name": "Tasty Station",
-  "app.tagline": "Paperless Restaurant POS",
+  "app.name": "Faarees Kaafee",
+  "app.tagline": "ፋሪስ ካፌ እና ሪስቶራንት",
   "nav.dashboard": "Dashboard",
   "nav.orders": "Orders",
   "nav.createOrder": "Create Order",

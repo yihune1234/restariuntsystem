@@ -3,7 +3,6 @@ import { Outlet } from "react-router-dom";
 import RoleSidebar from "./RoleSidebar";
 import MobileDrawer from "./MobileDrawer";
 import {
-  waiterNav,
   cashierNav,
   kitchenNav,
   managerNav,
@@ -12,7 +11,6 @@ import {
 import { UtensilsCrossed } from "lucide-react";
 
 const ROLE_NAV = {
-  waiter: waiterNav,
   cashier: cashierNav,
   kitchen: kitchenNav,
   manager: managerNav,

@@ -5,7 +5,7 @@ const mealPeriodSchema = new mongoose.Schema(
     branchId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Branch',
-      required: [true, 'Branch reference is required'],
+      default: null,
       index: true,
     },
     name: {

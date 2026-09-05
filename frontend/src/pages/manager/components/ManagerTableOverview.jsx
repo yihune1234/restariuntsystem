@@ -152,9 +152,9 @@ const TableListRow = ({ table, activeOrders, onClick }) => {
   );
 };
 
-const ManagerTableOverview = ({ branchId, tables: propTables, orders: propOrders, statusFilter }) => {
-  const { tables: storeTables, getTablesByBranch, isLoading: tablesLoading } = useTableStore();
-  const { orders: storeOrders, getBranchOrders, isLoading: ordersLoading } = useOrderStore();
+const ManagerTableOverview = ({ tables: propTables, orders: propOrders, statusFilter }) => {
+  const { tables: storeTables, getTables, isLoading: tablesLoading } = useTableStore();
+  const { orders: storeOrders, getOrders, isLoading: ordersLoading } = useOrderStore();
 
   const tables = propTables || storeTables || [];
   const orders = propOrders || storeOrders || [];
@@ -163,16 +163,16 @@ const ManagerTableOverview = ({ branchId, tables: propTables, orders: propOrders
   const [selectedTable, setSelectedTable] = useState(null);
 
   useEffect(() => {
-    if (!propTables && branchId) {
-      getTablesByBranch(branchId);
+    if (!propTables) {
+      getTables();
     }
-  }, [branchId, propTables, getTablesByBranch]);
+  }, [propTables, getTables]);
 
   useEffect(() => {
-    if (!propOrders && branchId) {
-      getBranchOrders(branchId, { limit: 100 });
+    if (!propOrders) {
+      getOrders({ limit: 100 });
     }
-  }, [branchId, propOrders, getBranchOrders]);
+  }, [propOrders, getOrders]);
 
   const tableOrderMap = useMemo(() => {
     const map = {};

@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useState } from "react";
 import ReportsAnalytics from "../shared/ReportsAnalytics";
 import OrderList from "../shared/OrderList";
 import MenuManager from "../shared/MenuManager";
@@ -6,214 +6,116 @@ import StaffRoster from "../shared/StaffRoster";
 import StaffProfile from "../shared/StaffProfile";
 import BranchSettings from "./BranchSettings";
 import TableManagement from "./TableManagement";
-import WaiterAssignmentPortal from "./components/WaiterAssignmentPortal";
+import CreateOrder from "../shared/CreateOrder";
 import { DailyClosingManager } from "./DailyClosingManager";
 import { useAuthStore } from "@/store/useAuthStore";
-import { useOrderStore } from "@/store/useOrderStore";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import {
-  ManagerDashboardRealTime,
   ManagerOverview,
-  ManagerLive,
   ManagerLiveOrders,
   ManagerTableOverview,
-  ManagerAlerts,
-  ManagerPaymentsPanel,
   ManagerStaffPanel,
   ManagerKitchenBoard,
   ManagerComplaints,
-  ManagerWasteManagement,
-  ManagerOfflineMode,
   ManagerMenuDashboard,
-  ManagerInventoryDashboard,
 } from "./components";
 import {
   Users,
-  ShoppingCart,
-  Wallet,
-  Receipt,
-  ChefHat,
-  Truck,
-  Banknote,
-  Clock,
-  CheckCircle,
-  AlertTriangle,
   UtensilsCrossed,
   Boxes,
 } from "lucide-react";
 
 export const ManagerDashboard = () => {
-  const { authUser } = useAuthStore();
-  const branchId = authUser?.branchId;
-
-  if (!branchId) {
-    return (
-      <div className="p-4 lg:p-6">
-        <Card>
-          <CardContent className="p-6">
-            <p className="text-muted-foreground">No branch assigned yet. Please contact your system administrator.</p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  return (
-    <ManagerOverview branchId={branchId} />
-  );
+  return <ManagerOverview />;
 };
 
 export const ManagerOrders = () => {
-  const { authUser } = useAuthStore();
-  const branchId = authUser?.branchId;
-
-  if (!branchId) {
-    return <div className="p-6"><p className="text-muted-foreground">No branch assigned yet.</p></div>;
-  }
-
   return (
     <div className="p-4 lg:p-6 space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Orders</h1>
-        <p className="text-sm text-muted-foreground">Manage all branch orders</p>
+        <p className="text-sm text-muted-foreground">Manage all restaurant orders</p>
       </div>
-      <ManagerLiveOrders branchId={branchId} title="All Orders" />
+      <ManagerLiveOrders title="All Orders" />
+    </div>
+  );
+};
+
+export const ManagerCreateOrder = () => {
+  return (
+    <div className="p-4 lg:p-6 space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold">Create Order</h1>
+        <p className="text-sm text-muted-foreground">Create a new order for a table or walk-in customer</p>
+      </div>
+      <CreateOrder />
     </div>
   );
 };
 
 export const ManagerKitchen = () => {
-  const { authUser } = useAuthStore();
-  const branchId = authUser?.branchId;
-
-  if (!branchId) {
-    return <div className="p-6"><p className="text-muted-foreground">No branch assigned yet.</p></div>;
-  }
-
   return (
     <div className="p-4 lg:p-6 space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Kitchen Board</h1>
         <p className="text-sm text-muted-foreground">Monitor kitchen stations and order preparation</p>
       </div>
-      <ManagerKitchenBoard branchId={branchId} />
+      <ManagerKitchenBoard />
     </div>
   );
 };
 
 export const ManagerTables = () => {
-  const { authUser } = useAuthStore();
-  const branchId = authUser?.branchId;
-
-  if (!branchId) {
-    return <div className="p-6"><p className="text-muted-foreground">No branch assigned yet.</p></div>;
-  }
-
+  const [tab, setTab] = useState("overview");
   return (
     <div className="p-4 lg:p-6 space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Tables & QR</h1>
         <p className="text-sm text-muted-foreground">Manage tables and QR code sessions</p>
       </div>
-      <ManagerTableOverview branchId={branchId} />
-    </div>
-  );
-};
-
-export const ManagerPayments = () => {
-  const { authUser } = useAuthStore();
-  const branchId = authUser?.branchId;
-
-  if (!branchId) {
-    return <div className="p-6"><p className="text-muted-foreground">No branch assigned yet.</p></div>;
-  }
-
-  return (
-    <div className="p-4 lg:p-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Payments</h1>
-        <p className="text-sm text-muted-foreground">Monitor payments by method and status</p>
+      <div className="border-b border-gray-200 dark:border-gray-700">
+        <div className="flex gap-4">
+          <button
+            onClick={() => setTab("overview")}
+            className={`px-1 py-2 text-sm font-medium border-b-2 transition-all ${
+              tab === "overview"
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Floor Overview
+          </button>
+          <button
+            onClick={() => setTab("manage")}
+            className={`px-1 py-2 text-sm font-medium border-b-2 transition-all ${
+              tab === "manage"
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Manage Tables
+          </button>
+        </div>
       </div>
-      <ManagerPaymentsPanel branchId={branchId} />
+      {tab === "overview" && <ManagerTableOverview />}
+      {tab === "manage" && <TableManagement />}
     </div>
   );
 };
 
 export const ManagerTransactions = () => {
-  const { authUser } = useAuthStore();
-  const branchId = authUser?.branchId;
-  const { orders, getBranchOrders, isLoading } = useOrderStore();
-
-  useEffect(() => {
-    if (branchId) {
-      getBranchOrders(branchId, { limit: 100 });
-    }
-  }, [branchId, getBranchOrders]);
-
-  if (!branchId) {
-    return <div className="p-6"><p className="text-muted-foreground">No branch assigned yet.</p></div>;
-  }
-
-  const transactions = orders.filter(o => o.paymentStatus === "COMPLETED" || o.status === "DELIVERED" || o.status === "CANCELLED");
-  const completedTx = transactions.filter(o => o.status !== "CANCELLED");
-  const cancelledTx = transactions.filter(o => o.status === "CANCELLED");
-
-  const totalCompleted = completedTx.reduce((sum, o) => sum + (o.total || 0), 0);
-  const totalCancelled = cancelledTx.reduce((sum, o) => sum + (o.total || 0), 0);
-
   return (
     <div className="p-4 lg:p-6 space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Transactions</h1>
         <p className="text-sm text-muted-foreground">View all completed and cancelled transactions</p>
       </div>
-      <div className="grid md:grid-cols-3 gap-4">
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground">Completed</p>
-            <p className="text-2xl font-bold text-green-600">{completedTx.length}</p>
-            <p className="text-sm font-semibold">{totalCompleted.toLocaleString()} ETB</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground">Cancelled</p>
-            <p className="text-2xl font-bold text-red-600">{cancelledTx.length}</p>
-            <p className="text-sm font-semibold">{totalCancelled.toLocaleString()} ETB</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground">Net Revenue</p>
-            <p className="text-2xl font-bold">{(totalCompleted - totalCancelled).toLocaleString()} ETB</p>
-          </CardContent>
-        </Card>
-      </div>
       <Card>
         <CardHeader><CardTitle>Transaction History</CardTitle></CardHeader>
         <CardContent>
-          {transactions.length === 0 ? (
-            <EmptyState title="No transactions" description="Transactions will appear here." />
-          ) : (
-            <div className="space-y-2">
-              {transactions.map((order) => (
-                <div key={order._id} className="flex items-center justify-between p-3 border rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <Badge variant={order.status === "CANCELLED" ? "destructive" : "default"}>{order.status}</Badge>
-                    <div>
-                      <p className="font-medium">#{order.orderNumber || order._id?.slice(-6)}</p>
-                      <p className="text-xs text-muted-foreground">{order.paymentStatus}</p>
-                    </div>
-                  </div>
-                  <p className={`font-bold ${order.status === "CANCELLED" ? "text-red-600" : "text-green-600"}`}>
-                    {order.status === "CANCELLED" ? "-" : "+"}{(order.total || 0).toLocaleString()} ETB
-                  </p>
-                </div>
-              ))}
-            </div>
-          )}
+          <EmptyState title="No transactions" description="Transactions will appear here." />
         </CardContent>
       </Card>
     </div>
@@ -221,32 +123,18 @@ export const ManagerTransactions = () => {
 };
 
 export const ManagerCustomers = () => {
-  const { authUser } = useAuthStore();
-  const branchId = authUser?.branchId;
-
-  if (!branchId) {
-    return <div className="p-6"><p className="text-muted-foreground">No branch assigned yet.</p></div>;
-  }
-
   return (
     <div className="p-4 lg:p-6 space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Customer Issues</h1>
         <p className="text-sm text-muted-foreground">Handle customer complaints and feedback</p>
       </div>
-      <ManagerComplaints branchId={branchId} />
+      <ManagerComplaints />
     </div>
   );
 };
 
 export const ManagerMenu = () => {
-  const { authUser } = useAuthStore();
-  const branchId = authUser?.branchId;
-
-  if (!branchId) {
-    return <div className="p-6"><p className="text-muted-foreground">No branch assigned yet.</p></div>;
-  }
-
   return (
     <div className="p-4 lg:p-6 space-y-6">
       <div>
@@ -254,20 +142,14 @@ export const ManagerMenu = () => {
           <UtensilsCrossed className="size-6" />
           Menu Management
         </h1>
-        <p className="text-sm text-muted-foreground">Manage meal types, categories, and food items</p>
+        <p className="text-sm text-muted-foreground">Manage categories and food items</p>
       </div>
-      <MenuManager externalBranchId={branchId} />
+      <MenuManager />
     </div>
   );
 };
+
 export const ManagerStaff = () => {
-  const { authUser } = useAuthStore();
-  const branchId = authUser?.branchId;
-
-  if (!branchId) {
-    return <div className="p-6"><p className="text-muted-foreground">No branch assigned yet.</p></div>;
-  }
-
   return (
     <div className="p-4 lg:p-6 space-y-6">
       <div>
@@ -275,22 +157,17 @@ export const ManagerStaff = () => {
           <Users className="size-6" />
           Staff & Assignments
         </h1>
-        <p className="text-sm text-muted-foreground">Manage staff, assignments, and workload distribution</p>
+        <p className="text-sm text-muted-foreground">Manage staff and workload distribution</p>
       </div>
-      <ManagerStaffPanel branchId={branchId} />
+      <ManagerStaffPanel />
     </div>
   );
 };
+
 export const ManagerProfile = () => <StaffProfile />;
 export const ManagerReports = () => <ReportsAnalytics />;
+
 export const ManagerInventoryPage = () => {
-  const { authUser } = useAuthStore();
-  const branchId = authUser?.branchId;
-
-  if (!branchId) {
-    return <div className="p-6"><p className="text-muted-foreground">No branch assigned yet.</p></div>;
-  }
-
   return (
     <div className="p-4 lg:p-6 space-y-6">
       <div>
@@ -298,70 +175,67 @@ export const ManagerInventoryPage = () => {
           <Boxes className="size-6" />
           Inventory Management
         </h1>
-        <p className="text-sm text-muted-foreground">Track stock levels, waste, and inventory operations</p>
+        <p className="text-sm text-muted-foreground">Track stock levels and inventory operations</p>
       </div>
-      <ManagerInventoryDashboard branchId={branchId} />
+      <Card>
+        <CardContent className="p-6">
+          <p className="text-muted-foreground">Inventory management is not available in single-restaurant mode.</p>
+        </CardContent>
+      </Card>
     </div>
   );
 };
+
 export const ManagerBranchSettings = () => <BranchSettings />;
 
 export const ManagerDaily = () => {
-  const { authUser } = useAuthStore();
-  const branchId = authUser?.branchId;
-
-  if (!branchId) {
-    return <div className="p-6"><p className="text-muted-foreground">No branch assigned yet.</p></div>;
-  }
-
-  return <DailyClosingManager branchId={branchId} />;
+  return <DailyClosingManager />;
 };
 
 export const ManagerWaste = () => {
-  const { authUser } = useAuthStore();
-  const branchId = authUser?.branchId;
-
-  if (!branchId) {
-    return <div className="p-6"><p className="text-muted-foreground">No branch assigned yet.</p></div>;
-  }
-
   return (
     <div className="p-4 lg:p-6 space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Waste Management</h1>
         <p className="text-sm text-muted-foreground">Track and approve waste records</p>
       </div>
-      <ManagerWasteManagement branchId={branchId} />
+      <Card>
+        <CardContent className="p-6">
+          <p className="text-muted-foreground">Waste management is not available in single-restaurant mode.</p>
+        </CardContent>
+      </Card>
     </div>
   );
 };
 
 export const ManagerWaiterAssignment = () => {
-  const { authUser } = useAuthStore();
-  const branchId = authUser?.branchId;
-
-  if (!branchId) {
-    return <div className="p-6"><p className="text-muted-foreground">No branch assigned yet.</p></div>;
-  }
-
-  return <WaiterAssignmentPortal branchId={branchId} />;
+  return (
+    <div className="p-4 lg:p-6 space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold">Waiter Assignment</h1>
+        <p className="text-sm text-muted-foreground">Assign waiters to sections</p>
+      </div>
+      <Card>
+        <CardContent className="p-6">
+          <p className="text-muted-foreground">Waiter assignment is not available in single-restaurant mode.</p>
+        </CardContent>
+      </Card>
+    </div>
+  );
 };
 
 export const ManagerOffline = () => {
-  const { authUser } = useAuthStore();
-  const branchId = authUser?.branchId;
-
-  if (!branchId) {
-    return <div className="p-6"><p className="text-muted-foreground">No branch assigned yet.</p></div>;
-  }
-
   return (
     <div className="p-4 lg:p-6 space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Offline Mode</h1>
         <p className="text-sm text-muted-foreground">Record manual transactions during system outages</p>
       </div>
-      <ManagerOfflineMode branchId={branchId} />
+      <Card>
+        <CardContent className="p-6">
+          <p className="text-muted-foreground">Offline mode is not available in single-restaurant mode.</p>
+        </CardContent>
+      </Card>
     </div>
   );
 };

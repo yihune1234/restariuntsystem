@@ -19,6 +19,10 @@ const SOCKET_EVENTS = {
   FOOD_SOLD_OUT: 'food:sold-out',
   FOOD_AVAILABILITY_CHANGED: 'food:availability-changed',
   STOCK_UPDATED: 'stock:updated',
+  MENU_ITEM_UPDATED: 'menu:item-updated',
+  MENU_CATEGORY_UPDATED: 'menu:category-updated',
+  MENU_ITEM_CREATED: 'menu:item-created',
+  MENU_CATEGORY_CREATED: 'menu:category-created',
 
   // Table Events
   TABLE_STATUS_CHANGED: 'table:status-changed',

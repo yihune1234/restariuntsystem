@@ -1,29 +1,23 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { useOrderStore } from "@/store/useOrderStore";
-import { useTableStore } from "@/store/useTableStore";
-import { useUserStore } from "@/store/useUserStore";
-import { useShiftStore } from "@/store/useShiftStore";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useDashboardStore } from "@/store/useDashboardStore";
+import { useAuthStore } from "@/store/useAuthStore";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  ShoppingCart,
-  DollarSign,
-  AlertTriangle,
-  CreditCard,
-  LayoutGrid,
-  Boxes,
-  CalendarClock,
-  ArrowRight,
-  RefreshCw,
-  ChefHat,
-  Truck,
-  Settings,
-  Zap,
-  CheckCircle,
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  PieChart as RePieChart, Pie, Cell, BarChart, Bar, Legend,
+} from "recharts";
+import {
+  DollarSign, ShoppingCart, AlertTriangle, CreditCard,
+  LayoutGrid, Boxes, CalendarClock, ArrowRight, RefreshCw,
+  Zap, CheckCircle, Clock, Loader2, Wallet, UtensilsCrossed,
+  TrendingUp, Target, Users, Activity, Donut,
 } from "lucide-react";
+
+const COLORS = ["#f59e0b", "#ef4444", "#22c55e", "#3b82f6", "#8b5cf6", "#ec4899"];
 
 const SummaryCard = ({ icon: Icon, label, value, subtext, color, onClick, actionLabel, badge }) => (
   <Card className="flex flex-col justify-between hover:shadow-md transition-shadow">
@@ -67,89 +61,113 @@ const RecentActivityItem = ({ icon: Icon, color, text, time }) => (
   </div>
 );
 
-const ManagerOverview = ({ branchId }) => {
+const STATUS_COLORS = {
+  PENDING: "#f59e0b", PREPARING: "#3b82f6", READY: "#8b5cf6",
+  COMPLETED: "#22c55e", CANCELLED: "#ef4444",
+};
+const PAYMENT_COLORS = {
+  QR: "#3b82f6", Cashier: "#f59e0b", Manual: "#8b5cf6",
+};
+
+const ManagerOverview = () => {
   const navigate = useNavigate();
-  const { orders, getBranchOrders, isLoading: ordersLoading } = useOrderStore();
-  const { tables, getTablesByBranch, isLoading: tablesLoading } = useTableStore();
-  const { staff, fetchStaffByBranch } = useUserStore();
-  const { branchShifts } = useShiftStore();
+  const { authUser } = useAuthStore();
+  const {
+    ownerKPIs, hourlySales, foodReport, ordersReport,
+    isLoading, isFetchingCharts, lastUpdated, fetchAllDashboardData, listenForRealTimeUpdates,
+  } = useDashboardStore();
+
+  const [socketConnected, setSocketConnected] = useState(false);
 
   useEffect(() => {
-    if (branchId) {
-      getBranchOrders(branchId, { limit: 100 });
-      getTablesByBranch(branchId);
-      fetchStaffByBranch(branchId);
-    }
-  }, [branchId, getBranchOrders, getTablesByBranch, fetchStaffByBranch]);
+    fetchAllDashboardData();
+    const cleanup = listenForRealTimeUpdates();
+    setSocketConnected(true);
+    return cleanup;
+  }, [fetchAllDashboardData, listenForRealTimeUpdates]);
 
-  const stats = useMemo(() => {
-    const active = orders.filter(o => !["COMPLETED", "CANCELLED"].includes(o.orderStatus));
-    const preparing = active.filter(o => ["CONFIRMED", "PREPARING"].includes(o.orderStatus));
-    const ready = active.filter(o => o.orderStatus === "READY");
-    const unpaid = active.filter(o => ["UNPAID", "PENDING"].includes(o.paymentStatus));
-    const delayed = active.filter(o => {
-      if (["COMPLETED", "CANCELLED", "DELIVERED", "READY"].includes(o.orderStatus)) return false;
-      return Date.now() - new Date(o.createdAt).getTime() > 20 * 60 * 1000;
-    });
-    
-    const unpaidAmount = unpaid.reduce((sum, o) => sum + (o.total || 0), 0);
-    const occupiedTables = tables.filter(t => t.status !== "AVAILABLE").length;
-    const staffOnShift = branchShifts.filter(s => s.status === "OPEN").length;
+  const kpis = ownerKPIs?.kpis || ownerKPIs || {};
+  const revenueKpis = kpis.revenue || {};
+  const orders = kpis.orders || {};
+  const tables = kpis.tables || {};
+  const sourceBreakdown = kpis.sourceBreakdown || {};
+  const paymentBreakdown = kpis.paymentBreakdown || {};
 
-    return {
-      totalOrders: active.length,
-      preparing: preparing.length,
-      ready: ready.length,
-      unpaid: unpaid.length,
-      delayed: delayed.length,
-      unpaidAmount,
-      totalTables: tables.length,
-      occupiedTables,
-      availableTables: tables.length - occupiedTables,
-      staffOnShift,
-    };
-  }, [orders, tables, branchShifts]);
+  const delayedOrders = useMemo(() => {
+    if (!ownerKPIs) return 0;
+    return 0;
+  }, [ownerKPIs]);
 
-  const recentActivity = useMemo(() => {
-    const activities = [];
-    orders.filter(o => !["COMPLETED", "CANCELLED"].includes(o.orderStatus)).slice(0, 5).forEach(order => {
-      activities.push({
-        icon: ShoppingCart,
-        color: "bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400",
-        text: `Order #${order.orderNumber || order._id?.slice(-6)} received`,
-        time: new Date(order.createdAt).toLocaleTimeString(),
-      });
+  const hourlyChartData = useMemo(() => {
+    return (hourlySales || []).map(h => ({
+      hour: `${String(h.hour).padStart(2, "0")}:00`,
+      revenue: Math.round((h.revenue || 0) * 100) / 100,
+      orders: h.orders || 0,
+    }));
+  }, [hourlySales]);
+
+  const statusPieData = useMemo(() => {
+    const labels = ["Pending", "Preparing", "Ready", "Completed", "Cancelled"];
+    const values = labels.map(label => {
+      const key = label.toLowerCase();
+      const statusKey = label === "Preparing" ? "preparing" : label.toLowerCase();
+      return orders[statusKey] || 0;
     });
-    orders.filter(o => o.orderStatus === "READY").slice(0, 3).forEach(order => {
-      activities.push({
-        icon: CheckCircle,
-        color: "bg-green-100 text-green-600 dark:bg-green-900/40 dark:text-green-400",
-        text: `Order #${order.orderNumber || order._id?.slice(-6)} ready`,
-        time: new Date(order.updatedAt).toLocaleTimeString(),
-      });
-    });
-    orders.filter(o => o.paymentStatus === "COMPLETED").slice(0, 3).forEach(order => {
-      activities.push({
-        icon: DollarSign,
-        color: "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-400",
-        text: `Payment ${(order.total || 0).toLocaleString()} ETB`,
-        time: new Date(order.updatedAt).toLocaleTimeString(),
-      });
-    });
-    return activities.sort((a, b) => new Date(b.time) - new Date(a.time)).slice(0, 6);
+    return labels.map((label, i) => ({ name: label, value: values[i] })).filter(d => d.value > 0);
   }, [orders]);
 
-  const isLoading = ordersLoading && tablesLoading;
+  const sourceBarData = useMemo(() => {
+    return Object.entries(sourceBreakdown).map(([key, val]) => ({
+      name: key,
+      count: val.count || 0,
+      revenue: Math.round((val.revenue || 0) * 100) / 100,
+    }));
+  }, [sourceBreakdown]);
 
-  if (!branchId) {
-    return <div className="p-6"><p className="text-muted-foreground">No branch assigned yet.</p></div>;
-  }
+  const topItems = useMemo(() => {
+    return (foodReport?.topSellingFood || []).slice(0, 8).map(item => ({
+      name: item.foodName || item._id,
+      revenue: Math.round((item.totalRevenue || 0) * 100) / 100,
+      qty: item.totalQuantitySold || 0,
+    })).sort((a, b) => b.revenue - a.revenue);
+  }, [foodReport]);
 
-  if (isLoading && orders.length === 0) {
+  const categoryBarData = useMemo(() => {
+    return (foodReport?.categoryBreakdown || []).map(c => ({
+      name: c.name,
+      revenue: Math.round((c.totalRevenue || 0) * 100) / 100,
+      qty: c.totalQuantitySold || 0,
+    }));
+  }, [foodReport]);
+
+  const revenue = useMemo(() => Math.round((revenueKpis.total || 0) * 100) / 100, [revenueKpis.total]);
+  const netRevenue = useMemo(() => Math.round((revenueKpis.net || 0) * 100) / 100, [revenueKpis.net]);
+
+  const avgOrdersPerHour = useMemo(() => {
+    if (hourlyChartData.length === 0) return 0;
+    const total = hourlyChartData.reduce((s, h) => s + (h.orders || 0), 0);
+    return Math.round((total / hourlyChartData.length) * 10) / 10;
+  }, [hourlyChartData]);
+
+  const peakHour = useMemo(() => {
+    if (hourlyChartData.length === 0) return null;
+    return hourlyChartData.reduce((best, h) => (h.orders > (best?.orders || 0) ? h : best), null);
+  }, [hourlyChartData]);
+
+  const awaitingKitchen = useMemo(() => {
+    const pending = orders.pending || orders.unpaid || 0;
+    return pending;
+  }, [orders]);
+
+  if (isLoading && !ownerKPIs) {
     return (
       <div className="p-4 lg:p-6 space-y-6">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {[...Array(6)].map((_, i) => <Skeleton key={i} className="h-32" />)}
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Skeleton className="h-80" />
+          <Skeleton className="h-80" />
         </div>
       </div>
     );
@@ -157,114 +175,248 @@ const ManagerOverview = ({ branchId }) => {
 
   return (
     <div className="p-4 lg:p-6 space-y-6 max-w-7xl mx-auto">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Manager Dashboard</h1>
+          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+            <Activity className="size-6 text-primary" /> Manager Dashboard
+          </h1>
           <p className="text-sm text-muted-foreground">
             {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+            {socketConnected && (
+              <span className="ml-2 inline-flex items-center gap-1 text-green-600 text-xs font-medium">
+                <span className="size-1.5 rounded-full bg-green-500" /> Live
+              </span>
+            )}
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => { getBranchOrders(branchId, { limit: 100 }); getTablesByBranch(branchId); }}>
-          <RefreshCw className="size-4 mr-2" /> Refresh Data
+        <Button variant="outline" size="sm" onClick={fetchAllDashboardData} disabled={isFetchingCharts}>
+          {isFetchingCharts ? <Loader2 className="size-4 mr-2 animate-spin" /> : <RefreshCw className="size-4 mr-2" />}
+          Refresh
         </Button>
       </div>
 
-      {/* Top Operational KPIs (Progressive Disclosure) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         <SummaryCard
+          icon={DollarSign}
+          label="Total Revenue"
+          value={`${revenue.toLocaleString()} ETB`}
+          subtext={`Net: ${netRevenue.toLocaleString()} ETB`}
+          color="bg-green-500/10 text-green-600"
+          actionLabel="View Sales"
+          onClick={() => navigate("/manager/reports")}
+        />
+        <SummaryCard
           icon={ShoppingCart}
-          label="Active Orders"
-          value={stats.totalOrders}
-          subtext={`${stats.preparing} preparing, ${stats.ready} ready`}
+          label="Total Orders"
+          value={orders.total || 0}
+          subtext={`${orders.completed || 0} completed · ${orders.active || 0} active`}
           color="bg-blue-500/10 text-blue-600"
           actionLabel="View Orders"
           onClick={() => navigate("/manager/orders")}
         />
         <SummaryCard
           icon={LayoutGrid}
-          label="Active Tables"
-          value={`${stats.occupiedTables} / ${stats.totalTables}`}
-          subtext={`${stats.availableTables} available`}
+          label="Tables"
+          value={`${tables.occupied || 0} / ${tables.total || 0}`}
+          subtext={`${tables.available || 0} available`}
           color="bg-purple-500/10 text-purple-600"
           actionLabel="Floor Plan"
           onClick={() => navigate("/manager/tables")}
         />
         <SummaryCard
-          icon={AlertTriangle}
-          label="Needs Attention"
-          value={stats.delayed}
-          subtext="Orders delayed > 20 mins"
-          color={stats.delayed > 0 ? "bg-red-500/10 text-red-600" : "bg-gray-500/10 text-gray-500"}
-          badge={stats.delayed > 0 ? { className: "bg-red-500 text-white", text: "Action Required" } : null}
-          actionLabel="View Orders"
-          onClick={() => navigate("/manager/orders")}
-        />
-        <SummaryCard
-          icon={CreditCard}
+          icon={Wallet}
           label="Pending Payments"
-          value={stats.unpaid}
-          subtext={`${stats.unpaidAmount.toLocaleString()} ETB unpaid`}
+          value={`${(revenue.unpaid || 0).toLocaleString()} ETB`}
+          subtext={`${orders.unpaid || 0} orders unpaid`}
           color="bg-amber-500/10 text-amber-600"
           actionLabel="View Payments"
           onClick={() => navigate("/manager/payments")}
         />
         <SummaryCard
-          icon={Boxes}
-          label="Inventory Alerts"
-          value="Check Stock"
-          subtext="View low stock and waste"
-          color="bg-orange-500/10 text-orange-600"
-          actionLabel="View Inventory"
-          onClick={() => navigate("/manager/inventory")}
+          icon={Clock}
+          label="Prepping"
+          value={orders.preparing || 0}
+          subtext={`${orders.ready || 0} ready`}
+          color="bg-indigo-500/10 text-indigo-600"
+          actionLabel="Kitchen"
+          onClick={() => navigate("/manager/kitchen")}
         />
         <SummaryCard
-          icon={CalendarClock}
-          label="Staff on Shift"
-          value={stats.staffOnShift}
-          subtext="Currently working"
-          color="bg-indigo-500/10 text-indigo-600"
-          actionLabel="View Staff"
-          onClick={() => navigate("/manager/staff")}
+          icon={AlertTriangle}
+          label="Awaiting Kitchen"
+          value={awaitingKitchen}
+          subtext={`${orders.preparing || 0} preparing · ${orders.ready || 0} ready`}
+          color="bg-red-500/10 text-red-600"
+          actionLabel="Kitchen"
+          onClick={() => navigate("/manager/kitchen")}
+        />
+        <SummaryCard
+          icon={TrendingUp}
+          label="Avg Order Value"
+          value={`${(orders.averageValue || 0).toLocaleString()} ETB`}
+          subtext="Today's average"
+          color="bg-emerald-500/10 text-emerald-600"
+          actionLabel="Reports"
+          onClick={() => navigate("/manager/reports")}
+        />
+        <SummaryCard
+          icon={UtensilsCrossed}
+          label="Orders / Hour"
+          value={hourlyChartData.length > 0 ? avgOrdersPerHour : "—"}
+          subtext={peakHour ? `Peak: ${peakHour.hour} (${peakHour.orders})` : "Today's average"}
+          color="bg-cyan-500/10 text-cyan-600"
+          actionLabel="Hourly"
+          onClick={() => navigate("/manager/reports")}
         />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Recent Activity */}
-        <Card className="lg:col-span-2">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-lg flex items-center gap-2">
-              <Zap className="size-5 text-primary" /> Recent Activity
+              <TrendingUp className="size-5 text-primary" /> Revenue Today
             </CardTitle>
+            <CardDescription>Hourly revenue and order count</CardDescription>
           </CardHeader>
-          <CardContent>
-            {recentActivity.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-6">No recent activity</p>
+          <CardContent className="h-72">
+            {hourlyChartData.length === 0 ? (
+              <div className="flex items-center justify-center h-full text-muted-foreground">No hourly data yet</div>
             ) : (
-              <div className="space-y-1">
-                {recentActivity.map((activity, i) => (
-                  <RecentActivityItem key={i} {...activity} />
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={hourlyChartData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="hour" tick={{ fontSize: 11 }} interval={2} />
+                  <YAxis tick={{ fontSize: 11 }} />
+                  <Tooltip />
+                  <Legend />
+                  <Area type="monotone" dataKey="revenue" stroke="#f59e0b" fill="#f59e0b20" name="Revenue (ETB)" />
+                  <Area type="monotone" dataKey="orders" stroke="#3b82f6" fill="#3b82f620" name="Orders" />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Activity className="size-5 text-primary" /> Order Status
+            </CardTitle>
+            <CardDescription>Live order distribution</CardDescription>
+          </CardHeader>
+          <CardContent className="h-72">
+            {statusPieData.length === 0 ? (
+              <div className="flex items-center justify-center h-full text-muted-foreground">No orders yet</div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <RePieChart>
+                  <Pie data={statusPieData} cx="50%" cy="50%" outerRadius={100} dataKey="value" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
+                    {statusPieData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={STATUS_COLORS[entry.name] || COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                  <Legend />
+                </RePieChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Target className="size-5 text-primary" /> Orders by Source
+            </CardTitle>
+            <CardDescription>QR, Cashier, Manual</CardDescription>
+          </CardHeader>
+          <CardContent className="h-64">
+            {sourceBarData.length === 0 ? (
+              <div className="flex items-center justify-center h-full text-muted-foreground">No source data</div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={sourceBarData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="count" fill="#3b82f6" name="Orders" />
+                  <Bar dataKey="revenue" fill="#f59e0b" name="Revenue (ETB)" />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <ShoppingCart className="size-5 text-primary" /> Top Selling Items
+            </CardTitle>
+            <CardDescription>By revenue today</CardDescription>
+          </CardHeader>
+          <CardContent className="h-64 overflow-auto">
+            {topItems.length === 0 ? (
+              <div className="flex items-center justify-center h-full text-muted-foreground">No sales data</div>
+            ) : (
+              <div className="space-y-2">
+                {topItems.map((item, i) => (
+                  <div key={i} className="flex items-center gap-3 text-sm">
+                    <span className="w-6 text-muted-foreground font-mono">{i + 1}</span>
+                    <span className="flex-1 font-medium truncate">{item.name}</span>
+                    <span className="text-amber-600 font-semibold">{item.revenue.toLocaleString()} ETB</span>
+                    <span className="text-muted-foreground text-xs">{item.qty}×</span>
+                  </div>
                 ))}
               </div>
             )}
           </CardContent>
         </Card>
+      </div>
 
-        {/* Quick Actions */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-lg flex items-center gap-2">
-              <Settings className="size-5 text-primary" /> Quick Actions
+              <UtensilsCrossed className="size-5 text-primary" /> Revenue by Category
             </CardTitle>
+            <CardDescription>Category breakdown</CardDescription>
+          </CardHeader>
+          <CardContent className="h-64">
+            {categoryBarData.length === 0 ? (
+              <div className="flex items-center justify-center h-full text-muted-foreground">No category data</div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={categoryBarData} layout="vertical">
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis type="number" tick={{ fontSize: 11 }} />
+                  <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={100} />
+                  <Tooltip />
+                  <Bar dataKey="revenue" fill="#22c55e" name="Revenue (ETB)" />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Zap className="size-5 text-primary" /> Quick POS Actions
+            </CardTitle>
+            <CardDescription>Create orders & manage payments</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 gap-2">
+              <QuickActionButton icon={ShoppingCart} label="New Order" onClick={() => navigate("/manager/create-order")} />
+              <QuickActionButton icon={Clock} label="All Orders" onClick={() => navigate("/manager/orders")} />
+              <QuickActionButton icon={CreditCard} label="Pending Payments" onClick={() => navigate("/manager/payments")} />
+              <QuickActionButton icon={CheckCircle} label="Ready Orders" onClick={() => navigate("/manager/kitchen")} />
+              <QuickActionButton icon={Users} label="Tables" onClick={() => navigate("/manager/tables")} />
               <QuickActionButton icon={CalendarClock} label="Daily Close" onClick={() => navigate("/manager/daily")} />
-              <QuickActionButton icon={AlertTriangle} label="Complaints" onClick={() => navigate("/manager/customers")} />
-              <QuickActionButton icon={ChefHat} label="Kitchen" onClick={() => navigate("/manager/kitchen")} />
-              <QuickActionButton icon={Boxes} label="Waste Mgmt" onClick={() => navigate("/manager/waste")} />
-              <QuickActionButton icon={Truck} label="Offline" onClick={() => navigate("/manager/offline")} />
-              <QuickActionButton icon={Settings} label="Settings" onClick={() => navigate("/manager/branch-settings")} />
             </div>
           </CardContent>
         </Card>

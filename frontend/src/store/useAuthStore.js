@@ -2,17 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import axios from "axios";
 import axiosInstance, { STORAGE_KEYS } from "../axios/axiosInstace";
-import { setDefaultIds, clearDefaultIds } from "../config/defaultOrg";
 import { toast } from "sonner";
-
-const normalizeUser = (user) => {
-  if (!user) return null;
-  return {
-    ...user,
-    branchId: user.branchId?._id || user.branchId,
-    organizationId: user.organizationId?._id || user.organizationId,
-  };
-};
 
 export const useAuthStore = create(
   persist(
@@ -34,11 +24,8 @@ export const useAuthStore = create(
           const res = await axiosInstance.get("/auth/me");
           const user = res.data?.data;
           if (user) {
-            const normalized = normalizeUser(user);
-            localStorage.setItem(STORAGE_KEYS.user, JSON.stringify(normalized));
-            // Single-branch mode: persist default IDs to localStorage
-            setDefaultIds(normalized.organizationId, normalized.branchId);
-            set({ authUser: normalized, isCheckingAuth: false });
+            localStorage.setItem(STORAGE_KEYS.user, JSON.stringify(user));
+            set({ authUser: user, isCheckingAuth: false });
           } else {
             set({ authUser: null, isCheckingAuth: false });
           }
@@ -59,13 +46,10 @@ export const useAuthStore = create(
             localStorage.setItem(STORAGE_KEYS.refreshToken, data.refreshToken);
           }
           if (data.user) {
-            const normalized = normalizeUser(data.user);
-            localStorage.setItem(STORAGE_KEYS.user, JSON.stringify(normalized));
-            // Single-branch mode: persist default IDs to localStorage
-            setDefaultIds(normalized.organizationId, normalized.branchId);
-            set({ authUser: normalized, isLoggingIn: false });
-            toast.success(`Welcome back, ${normalized?.name || "user"}!`);
-            return { success: true, user: normalized };
+            localStorage.setItem(STORAGE_KEYS.user, JSON.stringify(data.user));
+            set({ authUser: data.user, isLoggingIn: false });
+            toast.success(`Welcome back, ${data.user?.name || "user"}!`);
+            return { success: true, user: data.user };
           }
           set({ isLoggingIn: false });
           return { success: false, message: "Login failed" };
@@ -79,8 +63,7 @@ export const useAuthStore = create(
 
       signup: async (_formData) => {
         set({ isSigningUp: true });
-        const msg =
-          "Public signup is disabled. Staff accounts are created by an Owner or Manager from the dashboard.";
+        const msg = "Public signup is disabled. Staff accounts are created by an Owner or Manager from the dashboard.";
         toast.error(msg);
         set({ isSigningUp: false });
         return { success: false, message: msg };
@@ -109,7 +92,7 @@ export const useAuthStore = create(
         set({ isLoading: true });
         try {
           const res = await axiosInstance.patch("/auth/profile", profileData);
-          const updatedUser = normalizeUser(res.data?.data);
+          const updatedUser = res.data?.data;
           if (updatedUser) {
             const currentUser = _get().authUser;
             const merged = { ...currentUser, ...updatedUser };
@@ -157,18 +140,14 @@ export const useAuthStore = create(
           localStorage.removeItem(STORAGE_KEYS.refreshToken);
           localStorage.removeItem(STORAGE_KEYS.user);
           localStorage.removeItem(STORAGE_KEYS.customerSessionToken);
-          clearDefaultIds();
           set({ authUser: null, isLoading: false });
           toast.success("Logged out");
         }
       },
 
-      createStaff: async (branchId, payload) => {
+      createStaff: async (payload) => {
         try {
-          const res = await axiosInstance.post(
-            `/branches/${branchId}/users`,
-            payload
-          );
+          const res = await axiosInstance.post("/users", payload);
           toast.success("Staff user created");
           return { success: true, user: res.data?.data };
         } catch (e) {
@@ -179,12 +158,7 @@ export const useAuthStore = create(
     }),
     {
       name: "ts-auth-storage",
-      partialize: (state) => ({ authUser: normalizeUser(state.authUser) }),
-      onRehydrateStorage: () => (state) => {
-        if (state?.authUser) {
-          state.authUser = normalizeUser(state.authUser);
-        }
-      },
+      partialize: (state) => ({ authUser: state.authUser }),
     }
   )
 );

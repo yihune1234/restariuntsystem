@@ -1,36 +1,31 @@
 import React, { useEffect, useState } from "react";
 import { useAuthStore } from "@/store/useAuthStore";
-import { useBranchStore } from "@/store/useBranchStore";
 import useUserStore from "@/store/useUserStore";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Plus, User, Trash2, Loader2, Search, Eye, Edit } from "lucide-react";
+import { Plus, User, Trash2, Loader2, Search, Edit } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 
-const StaffRoster = ({ title, roles = ["waiter"] }) => {
+const VALID_ROLES = ["OWNER", "MANAGER", "CASHIER", "KITCHEN"];
+
+const StaffRoster = ({ title, roles = ["MANAGER", "CASHIER", "KITCHEN"] }) => {
   const { authUser } = useAuthStore();
-  const { branches, fetchBranches } = useBranchStore();
-  const { staff, fetchStaffByBranch, createStaff, updateStaff, deleteStaff, isLoading } = useUserStore();
-  const navigate = useNavigate();
+  const { staff, fetchStaff, createStaff, updateStaff, deleteStaff, isLoading } = useUserStore();
 
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({
     name: "",
     email: "",
     password: "",
-    role: roles[0]?.toUpperCase() || "WAITER",
-    branchId: "",
-    status: "ACTIVE",
+    role: roles[0] || "CASHIER",
     phone: "",
   });
   const [busy, setBusy] = useState(false);
   const [filters, setFilters] = useState({
-    branch: "",
     role: "",
     status: "",
     search: "",
@@ -39,47 +34,24 @@ const StaffRoster = ({ title, roles = ["waiter"] }) => {
   const canManageStaff = () => authUser?.role === "OWNER" || authUser?.role === "MANAGER";
 
   useEffect(() => {
-    if (authUser?.role === "OWNER" && authUser?.organizationId) {
-      fetchBranches(authUser.organizationId);
+    if (canManageStaff()) {
+      fetchStaff({
+        role: filters.role || undefined,
+        isActive: filters.status !== "INACTIVE",
+      });
     }
-  }, [authUser?.role, authUser?.organizationId, fetchBranches]);
-
-  useEffect(() => {
-    if (!canManageStaff()) return;
-
-    if (authUser?.role === "MANAGER" && authUser?.branchId) {
-      fetchStaffByBranch(authUser.branchId, {
-        role: filters.role || undefined,
-        isActive: filters.status !== "INACTIVE",
-      });
-    } else if (authUser?.role === "OWNER" && filters.branch) {
-      fetchStaffByBranch(filters.branch, {
-        role: filters.role || undefined,
-        isActive: filters.status !== "INACTIVE",
-      });
-    } else if (authUser?.role === "OWNER" && !filters.branch && branches.length > 0) {
-      fetchStaffByBranch(branches[0]._id, {
-        role: filters.role || undefined,
-        isActive: filters.status !== "INACTIVE",
-      });
-      setFilters(f => ({ ...f, branch: branches[0]._id }));
-    }
-  }, [authUser?.role, authUser?.branchId, authUser?.organizationId, filters.branch, filters.role, filters.status, branches, fetchStaffByBranch, canManageStaff]);
+  }, [authUser?.role, filters.role, filters.status, fetchStaff]);
 
   const handleCreate = async () => {
     if (!form.name || !form.email) {
       return toast.error("Name and email are required");
     }
-    if (!form.password && authUser?.role !== "OWNER") {
+    if (!form.password) {
       return toast.error("Password is required");
-    }
-    if (!form.branchId && authUser?.role === "OWNER") {
-      return toast.error("Please select a branch");
     }
 
     setBusy(true);
-    const targetBranch = form.branchId || authUser?.branchId;
-    const res = await createStaff(targetBranch, {
+    const res = await createStaff({
       name: form.name,
       email: form.email,
       password: form.password,
@@ -89,16 +61,16 @@ const StaffRoster = ({ title, roles = ["waiter"] }) => {
     setBusy(false);
     if (res.success) {
       setOpen(false);
-      setForm({ name: "", email: "", password: "", role: roles[0]?.toUpperCase() || "WAITER", branchId: filters.branch || "", status: "ACTIVE", phone: "" });
-      if (filters.branch) fetchStaffByBranch(filters.branch, { role: filters.role, isActive: filters.status !== "INACTIVE" });
+      setForm({ name: "", email: "", password: "", role: roles[0] || "CASHIER", phone: "" });
+      fetchStaff({ role: filters.role || undefined, isActive: filters.status !== "INACTIVE" });
     }
   };
 
   const handleRemove = async (id) => {
     if (!confirm("Deactivate this staff member?")) return;
     const res = await deleteStaff(id);
-    if (res.success && filters.branch) {
-      fetchStaffByBranch(filters.branch, { role: filters.role, isActive: filters.status !== "INACTIVE" });
+    if (res.success) {
+      fetchStaff({ role: filters.role || undefined, isActive: filters.status !== "INACTIVE" });
     }
   };
 
@@ -108,8 +80,6 @@ const StaffRoster = ({ title, roles = ["waiter"] }) => {
       email: s.email,
       password: "",
       role: s.role,
-      branchId: s.branchId?._id || s.branchId || "",
-      status: s.isActive ? "ACTIVE" : "INACTIVE",
       phone: s.phone || "",
     });
     setOpen(true);
@@ -119,15 +89,7 @@ const StaffRoster = ({ title, roles = ["waiter"] }) => {
     return (
       <div className="p-6 text-center">
         <h2 className="text-xl font-bold mb-4">Access Denied</h2>
-        <p className="text-muted-foreground">HR management is only available to Owners and Managers.</p>
-      </div>
-    );
-  }
-
-  if (authUser?.role === "MANAGER" && !authUser?.branchId) {
-    return (
-      <div className="p-6">
-        <p className="text-muted-foreground">No branch assigned. Please contact an Owner.</p>
+        <p className="text-muted-foreground">Staff management is only available to Owners and Managers.</p>
       </div>
     );
   }
@@ -152,9 +114,7 @@ const StaffRoster = ({ title, roles = ["waiter"] }) => {
             name: "",
             email: "",
             password: "",
-            role: roles[0]?.toUpperCase() || "WAITER",
-            branchId: filters.branch || "",
-            status: "ACTIVE",
+            role: roles[0] || "CASHIER",
             phone: "",
           });
           setOpen(true);
@@ -164,18 +124,6 @@ const StaffRoster = ({ title, roles = ["waiter"] }) => {
       </div>
 
       <div className="flex flex-wrap gap-2">
-        {authUser?.role === "OWNER" && (
-          <select
-            value={filters.branch}
-            onChange={(e) => setFilters({ ...filters, branch: e.target.value })}
-            className="h-9 rounded-md border bg-transparent px-3 text-sm"
-          >
-            <option value="">All Branches</option>
-            {branches.map((b) => (
-              <option key={b._id} value={b._id}>{b.name}</option>
-            ))}
-          </select>
-        )}
         <select
           value={filters.role}
           onChange={(e) => setFilters({ ...filters, role: e.target.value })}
@@ -183,7 +131,7 @@ const StaffRoster = ({ title, roles = ["waiter"] }) => {
         >
           <option value="">All Roles</option>
           {roles.map((r) => (
-            <option key={r} value={r.toLowerCase()}>{r}</option>
+            <option key={r.toLowerCase()} value={r.toLowerCase()}>{r}</option>
           ))}
         </select>
         <select
@@ -234,7 +182,7 @@ const StaffRoster = ({ title, roles = ["waiter"] }) => {
                     <Button variant="ghost" size="icon-sm" onClick={() => handleView(s)} title="Edit">
                       <Edit className="size-4" />
                     </Button>
-                    {s.isActive && (
+                    {s.isActive && authUser?.role === "OWNER" && (
                       <Button variant="ghost" size="icon-sm" onClick={() => handleRemove(s._id)} title="Deactivate">
                         <Trash2 className="size-4 text-red-500" />
                       </Button>
@@ -264,26 +212,6 @@ const StaffRoster = ({ title, roles = ["waiter"] }) => {
               {roles.map((r) => (
                 <option key={r.toUpperCase()} value={r.toUpperCase()}>{r}</option>
               ))}
-            </select>
-            {authUser?.role === "OWNER" && (
-              <select
-                value={form.branchId}
-                onChange={(e) => setForm({ ...form, branchId: e.target.value })}
-                className="w-full h-9 rounded-md border bg-transparent px-2 text-sm"
-              >
-                <option value="">Select Branch</option>
-                {branches.map((b) => (
-                  <option key={b._id} value={b._id}>{b.name}</option>
-                ))}
-              </select>
-            )}
-            <select
-              value={form.status}
-              onChange={(e) => setForm({ ...form, status: e.target.value })}
-              className="w-full h-9 rounded-md border bg-transparent px-2 text-sm"
-            >
-              <option value="ACTIVE">Active</option>
-              <option value="INACTIVE">Inactive</option>
             </select>
             <Input
               placeholder={form.name ? "Leave blank to keep current password" : "Password (min 6 chars)"}

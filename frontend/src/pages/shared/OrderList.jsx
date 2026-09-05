@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from "react";
-import { useAuthStore } from "@/store/useAuthStore";
 import { useOrderStore } from "@/store/useOrderStore";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -8,28 +7,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { OrderStatusBadge, SecurityCode } from "./StatusBadge";
 import { Package, Clock } from "lucide-react";
 
-/**
- * Generic order list for waiter / cashier / manager.
- * Backend contract: GET /branches/:branchId/orders?status=&paymentStatus=&date=
- */
 const OrderList = ({ title = "Orders", statusFilter = "", paymentFilter = "" }) => {
-  const { authUser } = useAuthStore();
-  const branchId = authUser?.branchId;
-
-  const { orders, getBranchOrders, isLoading } = useOrderStore();
+  const { orders, getOrders, isLoading } = useOrderStore();
   const [filters, setFilters] = useState({ status: statusFilter, paymentStatus: paymentFilter });
 
   useEffect(() => {
-    if (branchId) getBranchOrders(branchId, { ...filters, limit: 50 });
-  }, [branchId, getBranchOrders, filters]);
-
-  if (!branchId) {
-    return (
-      <div className="p-6">
-        <p className="text-muted-foreground">You are not assigned to a branch yet.</p>
-      </div>
-    );
-  }
+    getOrders({ ...filters, limit: 50 });
+  }, [filters, getOrders]);
 
   return (
     <div className="p-4 lg:p-6">
