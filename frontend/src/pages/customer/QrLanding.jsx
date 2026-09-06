@@ -1,152 +1,116 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useCustomerStore } from "@/store/useCustomerStore";
-import { QrCode, Loader2, Lock, ArrowRight, ScanLine } from "lucide-react";
+import { Loader2, AlertCircle } from "lucide-react";
 import { STORAGE_KEYS } from "@/axios/axiosInstace";
+import { DEFAULT_BRANCH_ID } from "@/config/restaurant";
 
 /**
  * QR landing route — what the printed restaurant QR code encodes.
  *
- * New simplified flow (matches backend paperless-restaurant model):
- *   URL:  /customer/qr/:branchId
- *        (branchId may be encoded in the QR; the qrToken is encoded too
- *         via a separate encoded URL like /customer/qr/<branch>?t=<qrToken>)
- *
- * Backend accepts the QR token via POST /customer-sessions and returns a
- * sessionToken used for all subsequent customer calls.
- *
- * Session persistence: if a valid session token exists in localStorage and
- * matches the branch, skip QR token verification and go straight to menu.
+ * Simplified flow: scan QR → create session → redirect immediately to menu browse.
+ * No intermediate "Connected" screen - goes straight to the menu like unscan browsing.
  */
 const CustomerQrLanding = () => {
   const { branch } = useParams();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { startSession, fetchMenu, session, validateSession, resolveBranchFromToken } = useCustomerStore();
-  const [status, setStatus] = useState("checking"); // checking | ok | locked | invalid | restored
-  const [tableNumber, setTableNumber] = useState(null);
+  const {
+    startSession,
+    fetchMenu,
+    restoreSession,
+    session,
+    canOrder,
+    resolveBranchFromToken,
+  } = useCustomerStore();
   const done = useRef(false);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     if (done.current) return;
     const qrToken = searchParams.get("t") || searchParams.get("token") || "";
 
     (async () => {
-      // 1. First, check if we have a valid existing session for this branch
+      // 1. If we already have a session token, try to restore the active
+      //    session (covers page refreshes and repeat scans). If it's valid we
+      //    can go straight to ordering.
       const existingToken = localStorage.getItem(STORAGE_KEYS.customerSessionToken);
-      if (existingToken && session?.branchId === branch) {
-        done.current = true;
-        setTableNumber(session?.table?.tableNumber || null);
-        setStatus("restored");
-        await fetchMenu(branch);
-        setTimeout(() => navigate(`/customer/menu/${branch}`, { replace: true }), 400);
-        return;
+      if (existingToken) {
+        const restored = await restoreSession();
+        if (restored.success) {
+          done.current = true;
+          await fetchMenu();
+          navigate(`/customer/menu/${DEFAULT_BRANCH_ID}`, { replace: true });
+          return;
+        }
+        // Invalid/expired token; fall through to start a fresh session with the
+        // token carried by this URL (if present).
       }
 
-      // 1b. No session yet, but no ?t= token either. Older printed QR codes
-      // placed the TOKEN in the branch slot (`/customer/qr/<qrToken>`).
-      // Self-heal: resolve the branch from that token (or any token-shaped
-      // param) so the customer still reaches the menu instead of a dead end.
+      // 2b. No session token, but an older printed QR encoded the slug/branch
+      //     directly in the path (no ?t= query). Resolve it for a browse-only
+      //     experience (no ordering available).
       if (!qrToken) {
         const candidate = branch && !/^[a-f\d]{24}$/i.test(branch) ? branch : null;
         const resolved = candidate ? await resolveBranchFromToken(candidate) : null;
-        if (resolved?.branchId) {
-          done.current = true;
-          setTableNumber(resolved.tableNumber || null);
-          setStatus("ok");
-          await fetchMenu(resolved.branchId);
-          setTimeout(() => navigate(`/customer/menu/${resolved.branchId}`, { replace: true }), 400);
-          return;
-        }
-        setStatus("invalid");
+        done.current = true;
+        await fetchMenu();
+        navigate(`/customer/menu/${resolved?.branchId || DEFAULT_BRANCH_ID}`, { replace: true });
         return;
       }
+
+      // 3. Normal QR scan: ?t=<qrToken>. Start a customer session so the guest
+      //    can add items to cart and place an order.
       done.current = true;
       const res = await startSession(qrToken);
-      if (res?.success) {
-        setTableNumber(res.session?.table?.tableNumber || null);
-        setStatus("ok");
-        await fetchMenu(res.session?.branchId || branch);
-        setTimeout(() => navigate(`/customer/menu/${branch}`, { replace: true }), 400);
-      } else {
-        setStatus("locked");
+      if (!res?.success) {
+        // Session failed (invalid/expired QR). Show the error and let the user
+        // try to resean / browse the menu without ordering.
+        setError(res?.message || "This QR code is no longer valid. Please ask staff for assistance.");
+        return;
       }
+      await fetchMenu();
+      navigate(`/customer/menu/${DEFAULT_BRANCH_ID}`, { replace: true });
     })();
-  }, [branch, searchParams, startSession, fetchMenu, navigate, session, resolveBranchFromToken]);
+  }, [branch, searchParams, startSession, fetchMenu, restoreSession, navigate, resolveBranchFromToken, session, canOrder]);
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex items-center justify-center p-6">
-      <div className="w-full max-w-sm text-center space-y-6 bg-white/50 dark:bg-gray-800/50 backdrop-blur-md p-8 rounded-3xl border border-white/40 dark:border-gray-700 shadow-2xl">
-        <div className="relative mx-auto size-24 mb-4">
-          <div className="absolute inset-0 bg-amber-400 rounded-full blur-xl opacity-30 animate-pulse" />
-          <div className="relative size-full bg-gradient-to-br from-amber-500 to-orange-500 rounded-2xl flex items-center justify-center text-white shadow-xl transform rotate-3 transition-transform hover:rotate-6">
-            <QrCode className="size-12 animate-bounce-slow" />
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-6">
+        <div className="text-center space-y-4 max-w-sm">
+          <div className="inline-flex items-center justify-center size-14 rounded-2xl bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400 mx-auto shadow-sm">
+            <AlertCircle className="size-7" />
           </div>
-        </div>
-        
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Connecting...</h1>
-
-        {status === "checking" && (
-          <p className="text-gray-600 dark:text-gray-400 flex items-center justify-center gap-2 font-medium">
-            <Loader2 className="size-5 animate-spin text-amber-500" /> Verifying table session
-          </p>
-        )}
-
-        {status === "ok" && (
-          <div className="space-y-2 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="inline-flex items-center justify-center gap-2 bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400 px-4 py-2 rounded-full font-bold shadow-sm">
-              <ArrowRight className="size-4" /> Connected
-            </div>
-            <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              {tableNumber ? `Table ${tableNumber}` : "Ordering enabled"}
-            </p>
-            {session?.branch?.name && (
-              <p className="text-xs text-gray-500">{session.branch.name}</p>
-            )}
-          </div>
-        )}
-
-        {status === "restored" && (
-          <div className="space-y-2 animate-in fade-in slide-in-from-bottom-4 duration-500">
-             <div className="inline-flex items-center justify-center gap-2 bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400 px-4 py-2 rounded-full font-bold shadow-sm">
-              <ArrowRight className="size-4" /> Welcome back
-            </div>
-            <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              {tableNumber ? `Table ${tableNumber}` : "Resuming session"}
-            </p>
-            {session?.branch?.name && (
-              <p className="text-xs text-gray-500">{session.branch.name}</p>
-            )}
-          </div>
-        )}
-
-        {status === "locked" && (
-          <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="inline-flex items-center justify-center gap-2 bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 px-4 py-2 rounded-full font-bold shadow-sm">
-              <Lock className="size-4" /> Code Expired
-            </div>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              This QR code appears to be outdated or invalid. Please ask a staff member for a fresh code to place orders.
-            </p>
+          <h1 className="text-xl font-bold text-gray-900 dark:text-white">QR Code Not Recognized</h1>
+          <p className="text-sm text-gray-600 dark:text-gray-400">{error}</p>
+          <div className="flex flex-col gap-2 pt-2">
             <button
-              onClick={() => navigate(`/customer/menu/${branch}`)}
-              className="mt-4 w-full bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-semibold py-3 rounded-xl hover:opacity-90 transition-opacity"
+              onClick={() => navigate(`/customer/menu/${DEFAULT_BRANCH_ID}`, { replace: true })}
+              className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-600 to-orange-500 text-white font-semibold shadow-md hover:shadow-lg transition"
             >
-              View menu only
+              Browse Menu
+            </button>
+            <button
+              onClick={() => window.location.reload()}
+              className="px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-medium hover:bg-white dark:hover:bg-gray-800 transition"
+            >
+              Try Again
             </button>
           </div>
-        )}
+        </div>
+      </div>
+    );
+  }
 
-        {status === "invalid" && (
-          <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="inline-flex items-center justify-center gap-2 bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400 px-4 py-2 rounded-full font-bold shadow-sm">
-              <ScanLine className="size-4" /> Invalid Code
-            </div>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              Please scan the QR code placed on your table.
-            </p>
-          </div>
-        )}
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
+      <div className="text-center space-y-4">
+        <div className="inline-flex items-center justify-center gap-2 bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 px-4 py-2 rounded-full font-bold shadow-sm">
+          <Loader2 className="size-5 animate-spin" /> Loading menu...
+        </div>
+        <p className="text-sm text-gray-600 dark:text-gray-400">
+          Please wait while we prepare your dining experience
+        </p>
       </div>
     </div>
   );

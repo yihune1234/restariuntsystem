@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { buildCustomerQrUrl } from "@/lib/qrUrl";
-import { Building2, QrCode, Printer, RefreshCw } from "lucide-react";
+import { Building2, QrCode, Printer, RefreshCw, Copy, ExternalLink, Link as LinkIcon, Download } from "lucide-react";
 
 /**
  * Manager: view & edit their assigned branch + regenerate any table's QR.
@@ -113,6 +113,34 @@ const BranchSettings = () => {
   };
 
   const handlePrint = () => window.print();
+
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(qrUrl);
+      toast.success("Link copied to clipboard!");
+    } catch (err) {
+      toast.error("Failed to copy link");
+    }
+  };
+
+  const handleDownloadQr = () => {
+    const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=320x320&data=${encodeURIComponent(qrUrl)}`;
+    const printWindow = window.open("", "_blank");
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head><title>Table QR Code</title></head>
+        <body style="margin:0; display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:100vh; font-family:Arial,sans-serif;">
+          <div style="font-size:24px; font-weight:bold; margin-bottom:8px;">${currentBranch?.name || "Faarees Kaafee fi Restoorraantii"}</div>
+          <div style="font-size:14px; color:#666; margin-bottom:20px;">Scan to view menu and order</div>
+          <img src="${qrImageUrl}" width="320" height="320" />
+          <div style="font-size:12px; color:#888; margin-top:12px; word-break:break-all; max-width:400px; text-align:center;">${qrUrl}</div>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+    printWindow.print();
+  };
 
   return (
     <div className="p-4 lg:p-6 max-w-2xl space-y-4">
@@ -220,7 +248,37 @@ const BranchSettings = () => {
                   width={220}
                   height={220}
                 />
-                <p className="text-xs text-muted-foreground break-all text-center max-w-xs">{qrUrl}</p>
+                <div className="w-full space-y-2 print-hide">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground justify-center">
+                    <LinkIcon className="size-3" />
+                    <span className="font-medium">Customer Link:</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      readOnly
+                      value={qrUrl}
+                      className="text-xs bg-gray-50 dark:bg-gray-800"
+                    />
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="size-9 flex-shrink-0"
+                      onClick={handleCopyLink}
+                      title="Copy link"
+                    >
+                      <Copy className="size-3.5" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="size-9 flex-shrink-0"
+                      onClick={() => window.open(qrUrl, "_blank")}
+                      title="Open link"
+                    >
+                      <ExternalLink className="size-3.5" />
+                    </Button>
+                  </div>
+                </div>
               </>
             ) : (
               <p className="text-sm text-muted-foreground">No QR generated yet.</p>
@@ -233,6 +291,7 @@ const BranchSettings = () => {
                 <RefreshCw className="size-4" /> Regenerate
               </Button>
               <Button onClick={handlePrint}><Printer className="size-4" /> Print QR</Button>
+              <Button variant="outline" onClick={handleDownloadQr}><Download className="size-4" /> Download</Button>
             </div>
           )}
           {!qrUrl && (

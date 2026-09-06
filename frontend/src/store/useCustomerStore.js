@@ -3,7 +3,7 @@ import { persist } from "zustand/middleware";
 import axiosInstance, { STORAGE_KEYS } from "../axios/axiosInstace";
 import { toast } from "sonner";
 import { connectSocket, getSocket, trackOrder } from "../config/socket.config";
-import { applyDefaultBrand, DEFAULT_RESTAURANT } from "../config/restaurant";
+import { applyDefaultBrand, DEFAULT_RESTAURANT, DEFAULT_BRANCH_ID } from "../config/restaurant";
 
 let menuListenersRegistered = false;
 let menuRefreshTimer = null;
@@ -48,8 +48,11 @@ export const useCustomerStore = create(
         try {
           const res = await axiosInstance.get(`/public/qr/${qrToken}`);
           const data = res.data?.data || {};
+          const tableId = data.tableId || data._id || null;
+          // Single-restaurant mode: the QR token only identifies a table, not a
+          // branch, so we always resolve to the configured default branch.
           set({ branch: applyDefaultBrand(data) });
-          return { branchId: data.tableId, table: data, tableNumber: data.tableNumber };
+          return { branchId: DEFAULT_BRANCH_ID, table: data, tableId, tableNumber: data.tableNumber };
         } catch (err) {
           return null;
         }
@@ -76,6 +79,59 @@ export const useCustomerStore = create(
           set({ isLoading: false });
           toast.error(err.backendMessage || "Invalid QR code");
           return { success: false, message: err.backendMessage };
+        }
+      },
+
+      /**
+       * Restore an existing customer session from localStorage when the page is
+       * refreshed or the customer navigates directly to the menu. Without this,
+       * `canOrder` resets to false (it is intentionally not persisted) and the
+       * Add-to-Cart buttons stay disabled ("Scan QR to Order") after a refresh.
+       */
+      restoreSession: async () => {
+        const existingToken = localStorage.getItem(STORAGE_KEYS.customerSessionToken);
+        if (!existingToken) {
+          set({ session: null, canOrder: false });
+          return { success: false, restored: false };
+        }
+        if (get().session?.sessionToken === existingToken) {
+          set({ canOrder: true });
+          return { success: true, restored: true, session: get().session };
+        }
+        try {
+          const res = await axiosInstance.get("/customer-sessions/me");
+          const data = res.data?.data || {};
+          if (!data?.sessionToken) {
+            set({ session: null, canOrder: false });
+            return { success: false, restored: false };
+          }
+          // `tableId` may be a plain ObjectId string or a populated table object.
+          const rawTableId = data.tableId;
+          const table =
+            rawTableId && typeof rawTableId === "object" && rawTableId._id
+              ? { id: rawTableId._id, tableNumber: rawTableId.tableNumber }
+              : data.table;
+          const session = {
+            ...data,
+            tableId:
+              rawTableId && typeof rawTableId === "object"
+                ? rawTableId._id?.toString?.() || rawTableId.id?.toString?.()
+                : rawTableId || table?.id,
+            table,
+          };
+          set({
+            session,
+            canOrder: true,
+            branch: applyDefaultBrand(
+              data.branch || { name: DEFAULT_RESTAURANT.nameEn, nameAm: DEFAULT_RESTAURANT.nameAm }
+            ),
+          });
+          connectSocket();
+          return { success: true, restored: true, session };
+        } catch (err) {
+          localStorage.removeItem(STORAGE_KEYS.customerSessionToken);
+          set({ session: null, canOrder: false });
+          return { success: false, restored: false };
         }
       },
 

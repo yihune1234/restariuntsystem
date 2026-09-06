@@ -102,12 +102,22 @@ const App = () => {
 
         <Route path="/customer" element={<CustomerHome />} />
         <Route path="/customer/menu" element={<CustomerMenu />} />
+        <Route path="/customer/menu/:branch" element={<CustomerMenu />} />
+        <Route path="/customer/menu/:branch/*" element={<CustomerMenu />} />
         <Route path="/customer/cart" element={<CustomerCart />} />
+        <Route path="/customer/cart/:branch" element={<CustomerCart />} />
+        <Route path="/customer/cart/:branch/*" element={<CustomerCart />} />
         <Route path="/customer/checkout" element={<CustomerCheckout />} />
+        <Route path="/customer/checkout/:branch" element={<CustomerCheckout />} />
+        <Route path="/customer/checkout/:branch/*" element={<CustomerCheckout />} />
         <Route path="/customer/confirmed/:orderId" element={<CustomerConfirmed />} />
+        <Route path="/customer/confirmed/:branch/:orderId" element={<CustomerConfirmed />} />
+        <Route path="/customer/confirmed/:branch/:orderId/*" element={<CustomerConfirmed />} />
         <Route path="/customer/track" element={<CustomerTrack />} />
-        <Route path="/customer/track/:orderId" element={<CustomerTrack />} />
+        <Route path="/customer/track/:branch" element={<CustomerTrack />} />
         <Route path="/customer/track/code/:code" element={<CustomerTrack />} />
+        <Route path="/customer/track/:branch/:orderId" element={<CustomerTrack />} />
+        <Route path="/customer/track/:branch/:orderId/*" element={<CustomerTrack />} />
         <Route path="/customer/qr/:branch?" element={<CustomerQrLanding />} />
         <Route path="/customer/qr/:branch?/*" element={<CustomerQrLanding />} />
 

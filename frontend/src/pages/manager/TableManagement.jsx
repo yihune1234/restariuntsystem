@@ -7,10 +7,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { QrCode, Printer, RefreshCw, Plus, Trash2, Edit2, Check, Download } from "lucide-react";
+import { QrCode, Printer, RefreshCw, Plus, Trash2, Edit2, Check, Download, Copy, ExternalLink, Link } from "lucide-react";
 import { buildCustomerQrUrl } from "@/lib/qrUrl";
 
-const QRPrintCard = ({ qrUrl, title, subtitle }) => {
+const QRPrintCard = ({ qrUrl, title, subtitle, customerLink }) => {
   const printRef = useRef(null);
 
   const handleDownload = async () => {
@@ -100,14 +100,18 @@ const QRPrintCard = ({ qrUrl, title, subtitle }) => {
             .qr-container {
               display: flex;
               justify-content: center;
+              margin-bottom: 20px;
             }
             .qr-container img {
-              border: 8px solid #fff;
-              box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-              border-radius: 16px;
+              width: 280px;
+              height: 280px;
             }
-            @media print {
-              body { padding: 20px; }
+            .link-text {
+              font-size: 12px;
+              color: #888;
+              word-break: break-all;
+              max-width: 400px;
+              text-align: center;
             }
           </style>
         </head>
@@ -118,36 +122,71 @@ const QRPrintCard = ({ qrUrl, title, subtitle }) => {
           <div class="qr-container">
             <img src="${qrUrl}" width="280" height="280" />
           </div>
+          <div class="link-text">${customerLink}</div>
         </body>
       </html>
     `);
     printWindow.document.close();
-    setTimeout(() => {
-      printWindow.print();
-    }, 500);
+    printWindow.print();
   };
 
-  if (!qrUrl) return null;
+  const handleCopyLink = async () => {
+    if (!customerLink) return;
+    try {
+      await navigator.clipboard.writeText(customerLink);
+      toast.success("Link copied to clipboard!");
+    } catch (err) {
+      toast.error("Failed to copy link");
+    }
+  };
 
   return (
-    <div className="flex flex-col items-center gap-4">
-      <div ref={printRef} className="flex flex-col items-center p-6 bg-white rounded-xl border-2 border-dashed">
-        <p className="text-lg font-bold text-center">{title}</p>
-        {subtitle && <p className="text-sm text-muted-foreground text-center">{subtitle}</p>}
-        <div className="my-4">
-          <img
-            src={qrUrl}
-            alt="QR Code"
-            width={200}
-            height={200}
-            className="rounded-lg"
-          />
+    <div className="flex flex-col items-center">
+      <img
+        src={qrUrl}
+        alt="QR Code"
+        className="w-[280px] h-[280px] border rounded-lg p-2 bg-white"
+      />
+      <p className="text-xs text-muted-foreground text-center mt-2">Scan to view menu and order</p>
+      
+      {/* Customer Link Display */}
+      {customerLink && (
+        <div className="w-full mt-4 space-y-2">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Link className="size-3" />
+            <span className="font-medium">Customer Link:</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Input
+              readOnly
+              value={customerLink}
+              className="text-xs bg-gray-50 dark:bg-gray-800"
+            />
+            <Button
+              variant="outline"
+              size="icon"
+              className="size-9 flex-shrink-0"
+              onClick={handleCopyLink}
+              title="Copy link"
+            >
+              <Copy className="size-3.5" />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              className="size-9 flex-shrink-0"
+              onClick={() => window.open(customerLink, "_blank")}
+              title="Open link"
+            >
+              <ExternalLink className="size-3.5" />
+            </Button>
+          </div>
         </div>
-        <p className="text-xs text-muted-foreground text-center">Scan to view menu and order</p>
-      </div>
-      <div className="flex gap-2">
+      )}
+      
+      <div className="flex gap-2 mt-4">
         <Button variant="outline" size="sm" onClick={handleDownload}>
-          <Download className="size-4" /> Download PNG
+          <Download className="size-4" /> Download
         </Button>
         <Button variant="outline" size="sm" onClick={handlePrint}>
           <Printer className="size-4" /> Print
@@ -158,18 +197,16 @@ const QRPrintCard = ({ qrUrl, title, subtitle }) => {
 };
 
 const TableManagement = () => {
-  const { tables, getTables, createTable, updateTable, deleteTable, regenerateQr } = useTableStore();
-
+  const { tables, getTables, createTable, updateTable, deleteTable, regenerateQr, isLoading } = useTableStore();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [editingTable, setEditingTable] = useState(null);
+  const [selectedTableId, setSelectedTableId] = useState(null);
   const [deletingTable, setDeletingTable] = useState(null);
-  const [selectedTableId, setSelectedTableId] = useState("");
-  const [qrUrl, setQrUrl] = useState("");
   const [qrLoading, setQrLoading] = useState(false);
+  const [qrUrl, setQrUrl] = useState("");
+  const [qrCustomerLink, setQrCustomerLink] = useState("");
   const [selectedTableForQr, setSelectedTableForQr] = useState(null);
-
   const [newTable, setNewTable] = useState({ tableNumber: "", capacity: 4 });
   const [editForm, setEditForm] = useState({ tableNumber: "", capacity: 4, isActive: true });
 
@@ -179,10 +216,10 @@ const TableManagement = () => {
 
   const handleCreateTable = async () => {
     if (!newTable.tableNumber.trim()) {
-      toast.error("Table name/number is required");
+      toast.error("Table number is required");
       return;
     }
-    const res = await createTable({ tableNumber: newTable.tableNumber, capacity: newTable.capacity });
+    const res = await createTable(newTable);
     if (res.success) {
       setShowCreateDialog(false);
       setNewTable({ tableNumber: "", capacity: 4 });
@@ -191,17 +228,13 @@ const TableManagement = () => {
 
   const handleEditTable = async () => {
     if (!editForm.tableNumber.trim()) {
-      toast.error("Table name/number is required");
+      toast.error("Table number is required");
       return;
     }
-    const res = await updateTable(editingTable._id, {
-      tableNumber: editForm.tableNumber,
-      capacity: editForm.capacity,
-      isActive: editForm.isActive,
-    });
+    const res = await updateTable(selectedTableId, editForm);
     if (res.success) {
       setShowEditDialog(false);
-      setEditingTable(null);
+      setSelectedTableId(null);
     }
   };
 
@@ -213,28 +246,39 @@ const TableManagement = () => {
     }
   };
 
-  const openEditDialog = (table) => {
-    setEditingTable(table);
-    setEditForm({ tableNumber: table.tableNumber, capacity: table.capacity || 4, isActive: table.isActive });
-    setShowEditDialog(true);
-  };
-
-  const openDeleteDialog = (table) => {
-    setDeletingTable(table);
-    setShowDeleteDialog(true);
-  };
-
-  const handleGenerateTableQr = async (tableId) => {
-    setSelectedTableId(tableId);
+  const handleRegenerateQr = async (tableId) => {
     setQrLoading(true);
     const res = await regenerateQr(tableId);
-    setQrLoading(false);
     if (res.success) {
       const url = buildCustomerQrUrl(res.data.qrToken);
       setQrUrl(`https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=${encodeURIComponent(url)}`);
+      setQrCustomerLink(url);
       setSelectedTableForQr(tables.find(t => t._id === tableId));
-      toast.success("QR code generated");
+      toast.success("QR code regenerated");
     }
+    setQrLoading(false);
+  };
+
+  const handleGenerateQr = (table) => {
+    const url = buildCustomerQrUrl(table.qrToken);
+    setQrUrl(`https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=${encodeURIComponent(url)}`);
+    setQrCustomerLink(url);
+    setSelectedTableForQr(table);
+  };
+
+  const handleOpenEdit = (table) => {
+    setSelectedTableId(table._id);
+    setEditForm({
+      tableNumber: table.tableNumber,
+      capacity: table.capacity,
+      isActive: table.isActive,
+    });
+    setShowEditDialog(true);
+  };
+
+  const handleOpenDelete = (table) => {
+    setDeletingTable(table);
+    setShowDeleteDialog(true);
   };
 
   return (
@@ -248,90 +292,156 @@ const TableManagement = () => {
         </Button>
       </div>
 
-      <div className="grid lg:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Tables</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {tables.length === 0 ? (
-              <p className="text-muted-foreground text-sm">No tables yet. Create your first table to get started.</p>
-            ) : (
-              <div className="space-y-3">
-                {tables.map((table) => (
-                  <div key={table._id} className="flex items-center justify-between p-3 border rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <div>
-                        <p className="font-semibold">{table.tableNumber}</p>
-                        <p className="text-xs text-muted-foreground">Capacity: {table.capacity || 4}</p>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Tables List */}
+        <div className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <QrCode className="size-5 text-primary" /> All Tables
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {isLoading ? (
+                <p className="text-muted-foreground">Loading tables...</p>
+              ) : tables.length === 0 ? (
+                <p className="text-muted-foreground">No tables yet. Add your first table to get started.</p>
+              ) : (
+                <div className="space-y-2">
+                  {tables.map((table) => (
+                    <div
+                      key={table._id}
+                      className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="size-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                          <QrCode className="size-5 text-primary" />
+                        </div>
+                        <div>
+                          <p className="font-medium">{table.tableNumber}</p>
+                          <p className="text-xs text-muted-foreground">
+                            Capacity: {table.capacity} | Status: {table.status}
+                          </p>
+                          {table.qrToken && (
+                            <p className="text-xs text-blue-500 truncate max-w-[200px]">
+                              Token: {table.qrToken}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-8"
+                          onClick={() => handleGenerateQr(table)}
+                          title="View QR Code"
+                        >
+                          <QrCode className="size-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-8"
+                          onClick={() => handleRegenerateQr(table._id)}
+                          title="Regenerate QR Token"
+                        >
+                          <RefreshCw className="size-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-8"
+                          onClick={() => handleOpenEdit(table)}
+                          title="Edit Table"
+                        >
+                          <Edit2 className="size-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-8 text-red-500 hover:text-red-600"
+                          onClick={() => handleOpenDelete(table)}
+                          title="Delete Table"
+                        >
+                          <Trash2 className="size-4" />
+                        </Button>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant={table.isActive ? "default" : "secondary"}>
-                        {table.isActive ? "Active" : "Inactive"}
-                      </Badge>
-                      <Button size="sm" variant="outline" onClick={() => openEditDialog(table)}>
-                        <Edit2 className="size-3" />
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={() => openDeleteDialog(table)}>
-                        <Trash2 className="size-3 text-red-500" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* QR Code Display */}
+        <div className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <QrCode className="size-5 text-primary" /> Table QR Code
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {qrUrl ? (
+                <QRPrintCard
+                  qrUrl={qrUrl}
+                  title={`Table ${selectedTableForQr?.tableNumber || ""}`}
+                  subtitle="Scan to view menu and order"
+                  customerLink={qrCustomerLink}
+                />
+              ) : (
+                <div className="text-center py-12 text-muted-foreground">
+                  <QrCode className="size-16 mx-auto mb-4 opacity-50" />
+                  <p>Select a table and click the QR icon to generate its code</p>
+                  <p className="text-xs mt-2">The QR code will include a direct link to the menu</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Quick Generate Section */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <QrCode className="size-5" /> Generate Table QR
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex gap-2">
+                <select
+                  className="flex-1 border rounded-md px-3 py-2 text-sm bg-background"
+                  value={selectedTableId || ""}
+                  onChange={(e) => setSelectedTableId(e.target.value)}
+                >
+                  <option value="">Select a table...</option>
+                  {tables.map((t) => (
+                    <option key={t._id} value={t._id}>
+                      {t.tableNumber} (Capacity: {t.capacity})
+                    </option>
+                  ))}
+                </select>
+                <Button
+                  onClick={() => {
+                    const table = tables.find((t) => t._id === selectedTableId);
+                    if (table) handleGenerateQr(table);
+                  }}
+                  disabled={!selectedTableId || qrLoading}
+                >
+                  <QrCode className="size-4" /> {qrLoading ? "Generating..." : "Generate QR"}
+                </Button>
               </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <QrCode className="size-5" /> Generate Table QR
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Select a table to generate or regenerate its QR code. Print and place on the table.
-            </p>
-            <div className="flex gap-3 items-center flex-wrap">
-              <select
-                className="flex-1 min-w-[200px] h-10 rounded-md border bg-transparent px-3 text-sm"
-                value={selectedTableId}
-                onChange={(e) => {
-                  setSelectedTableId(e.target.value);
-                  setQrUrl("");
-                  setSelectedTableForQr(null);
-                }}
-              >
-                <option value="">Select a table</option>
-                {tables.filter(t => t.isActive).map((t) => (
-                  <option key={t._id} value={t._id}>Table {t.tableNumber}</option>
-                ))}
-              </select>
-              <Button
-                onClick={() => selectedTableId && handleGenerateTableQr(selectedTableId)}
-                disabled={!selectedTableId || qrLoading}
-              >
-                <QrCode className="size-4" /> {qrLoading ? "Generating..." : "Generate QR"}
-              </Button>
-            </div>
-
-            {qrUrl && selectedTableForQr && (
-              <QRPrintCard
-                qrUrl={qrUrl}
-                title={`Table ${selectedTableForQr.tableNumber}`}
-                subtitle="Scan to view menu and order"
-              />
-            )}
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
+      {/* Create Dialog */}
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add New Table</DialogTitle>
+            <DialogTitle>Create New Table</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div>
@@ -361,6 +471,7 @@ const TableManagement = () => {
         </DialogContent>
       </Dialog>
 
+      {/* Edit Dialog */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
         <DialogContent>
           <DialogHeader>
@@ -402,6 +513,7 @@ const TableManagement = () => {
         </DialogContent>
       </Dialog>
 
+      {/* Delete Dialog */}
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <DialogContent>
           <DialogHeader>

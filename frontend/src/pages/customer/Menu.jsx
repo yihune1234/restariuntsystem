@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useCustomerStore } from "@/store/useCustomerStore";
+import { STORAGE_KEYS } from "@/axios/axiosInstace";
 import { DEFAULT_RESTAURANT } from "@/config/restaurant";
 import { useTranslation, useI18nStore, languages } from "@/i18n";
 import { Button } from "@/components/ui/button";
@@ -360,7 +361,7 @@ export const RestaurantMenu = ({ branchId }) => {
   const {
     branch: b, menuTree, flatItems, activeMealPeriodIds,
     cart, addToCart, fetchMenu, canOrder, isLoading, error,
-    session, lastPlacedOrder, resolveBranchFromToken,
+    session, lastPlacedOrder, resolveBranchFromToken, restoreSession,
   } = useCustomerStore();
 
   const [selectedMealId, setSelectedMealId] = useState("");
@@ -378,14 +379,24 @@ export const RestaurantMenu = ({ branchId }) => {
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      // Restore an existing customer session (refresh / direct load) so the
+      // guest can keep ordering instead of being locked out of Add-to-Cart.
+      const existingToken = localStorage.getItem(STORAGE_KEYS.customerSessionToken);
+      if (existingToken && !session?.sessionToken) {
+        await restoreSession();
+        if (cancelled) return;
+      }
+
       if (!branchId) return;
       const isValidObjectId = /^[a-f\d]{24}$/i.test(branchId);
-      if (isValidObjectId) { fetchMenu(branchId); return; }
-      const token = searchParams.get("t") || searchParams.get("token") || (isValidObjectId ? null : branchId);
+      if (isValidObjectId) { fetchMenu(); return; }
+      const token = searchParams.get("t") || searchParams.get("token") || branchId;
       const resolved = await resolveBranchFromToken(token);
-      if (cancelled || !resolved?.branchId) return;
-      await fetchMenu(resolved.branchId);
-      navigate(`/customer/menu/${resolved.branchId}`, { replace: true });
+      if (cancelled) return;
+      await fetchMenu();
+      if (resolved?.branchId) {
+        navigate(`/customer/menu/${resolved.branchId}`, { replace: true });
+      }
     })();
     return () => { cancelled = true; };
   }, [branchId]);

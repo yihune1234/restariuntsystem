@@ -6,6 +6,9 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
 import {
   Users,
   Clock,
@@ -13,8 +16,15 @@ import {
   CreditCard,
   LayoutGrid,
   List,
+  QrCode,
+  Copy,
+  ExternalLink,
+  Link,
+  Download,
+  Printer,
 } from "lucide-react";
 import TableDetailsDrawer from "./TableDetailsDrawer";
+import { buildCustomerQrUrl } from "@/lib/qrUrl";
 
 const TABLE_STATUS_CONFIG = {
   available: { color: "bg-green-500", label: "Available", textColor: "text-green-600", bgClass: "bg-green-50 border-green-200" },
@@ -56,7 +66,7 @@ const calculateTableStatus = (table, tableOrders) => {
   return "available";
 };
 
-const TableCard = ({ table, activeOrders, onClick }) => {
+const TableCard = ({ table, activeOrders, onClick, onShowQr }) => {
   const statusKey = calculateTableStatus(table, activeOrders);
   const statusConfig = TABLE_STATUS_CONFIG[statusKey] || TABLE_STATUS_CONFIG.available;
   const hasUnpaid = activeOrders.some(o => ["UNPAID", "PENDING"].includes(o.paymentStatus));
@@ -64,171 +74,335 @@ const TableCard = ({ table, activeOrders, onClick }) => {
     if (["COMPLETED", "CANCELLED", "DELIVERED", "READY"].includes(o.orderStatus)) return false;
     return Date.now() - new Date(o.createdAt).getTime() > 20 * 60 * 1000;
   });
-  const preparationTime = activeOrders.length > 0
-    ? Math.floor((Date.now() - new Date(activeOrders[0].createdAt).getTime()) / 60000)
-    : 0;
-  const tableTotal = activeOrders.reduce((sum, o) => sum + (o.total || 0), 0);
-
-  return (
-    <Card
-      className={`cursor-pointer hover:shadow-md transition-all border-2 ${statusConfig.bgClass}`}
-      onClick={onClick}
-    >
-      <CardContent className="p-4">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <span className="font-bold text-xl">T{table.tableNumber}</span>
-            <div className={`size-3 rounded-full ${statusConfig.color}`} />
-          </div>
-          <Badge variant="outline" className={`${statusConfig.textColor} border-current font-medium`}>
-            {statusConfig.label}
-          </Badge>
-        </div>
-
-        <div className="flex items-center gap-2 text-sm text-muted-foreground mb-3">
-          <Users className="size-4" />
-          <span>{table.capacity || 4} seats</span>
-        </div>
-
-        {activeOrders.length > 0 ? (
-          <div className="space-y-2 pt-3 border-t border-gray-200">
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">Order #{activeOrders[0]?.orderNumber?.slice(-6) || activeOrders[0]?._id?.slice(-6)}</span>
-              <span className="text-xs font-medium">{preparationTime}m</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-semibold">{(tableTotal || 0).toLocaleString()} ETB</span>
-              <div className="flex gap-1">
-                {hasDelayed && <AlertCircle className="size-4 text-orange-500" />}
-                {hasUnpaid && <CreditCard className="size-4 text-red-500" />}
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="pt-3 border-t border-gray-100">
-            <span className="text-xs text-muted-foreground">No active orders</span>
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
-};
-
-const TableListRow = ({ table, activeOrders, onClick }) => {
-  const statusKey = calculateTableStatus(table, activeOrders);
-  const statusConfig = TABLE_STATUS_CONFIG[statusKey] || TABLE_STATUS_CONFIG.available;
-  const hasUnpaid = activeOrders.some(o => ["UNPAID", "PENDING"].includes(o.paymentStatus));
-  const hasDelayed = activeOrders.some(o => {
-    if (["COMPLETED", "CANCELLED", "DELIVERED", "READY"].includes(o.orderStatus)) return false;
-    return Date.now() - new Date(o.createdAt).getTime() > 20 * 60 * 1000;
-  });
-  const preparationTime = activeOrders.length > 0
-    ? Math.floor((Date.now() - new Date(activeOrders[0].createdAt).getTime()) / 60000)
-    : 0;
-  const tableTotal = activeOrders.reduce((sum, o) => sum + (o.total || 0), 0);
 
   return (
     <div
-      className={`flex items-center gap-4 p-4 border-b last:border-b-0 hover:bg-muted/30 cursor-pointer transition-colors ${
-        hasUnpaid ? "bg-red-50/50" : hasDelayed ? "bg-orange-50/50" : ""
-      }`}
+      className={`relative p-4 rounded-xl border-2 cursor-pointer transition-all hover:shadow-lg ${statusConfig.bgClass}`}
       onClick={onClick}
     >
-      <div className={`size-3 rounded-full ${statusConfig.color}`} />
-      <div className="w-20 font-semibold">T{table.tableNumber}</div>
-      <div className="flex-1 text-sm text-muted-foreground">{table.area || "Main"}</div>
-      <div className="w-16 text-center text-sm">{table.capacity || 4}</div>
-      <div className="w-28">
-        <Badge className={`${statusConfig.color} text-white text-xs`}>{statusConfig.label}</Badge>
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <div className={`size-3 rounded-full ${statusConfig.color}`} />
+          <span className={`text-xs font-medium ${statusConfig.textColor}`}>
+            {statusConfig.label}
+          </span>
+        </div>
+        {(hasUnpaid || hasDelayed) && (
+          <AlertCircle className="size-4 text-red-500 animate-pulse" />
+        )}
       </div>
-      <div className="w-16 text-center text-sm">{activeOrders.length}</div>
-      <div className="w-24 text-right font-semibold text-sm">{(tableTotal || 0).toLocaleString()}</div>
-      <div className="w-16 text-right text-sm text-muted-foreground">{preparationTime}m</div>
-      <div className="w-12 text-right">
-        {hasDelayed && <AlertCircle className="size-4 text-orange-500" />}
-        {hasUnpaid && <CreditCard className="size-4 text-red-500" />}
+      <div className="text-lg font-bold">{table.tableNumber}</div>
+      <div className="flex items-center justify-between mt-2">
+        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+          <Users className="size-3" />
+          <span>{table.capacity} seats</span>
+        </div>
+        {activeOrders.length > 0 && (
+          <Badge variant="outline" className="text-xs">
+            {activeOrders.length} order{activeOrders.length > 1 ? "s" : ""}
+          </Badge>
+        )}
       </div>
+      {/* QR Button */}
+      <Button
+        variant="ghost"
+        size="icon"
+        className="absolute top-1 right-1 size-7 opacity-0 group-hover:opacity-100 hover:opacity-100"
+        onClick={(e) => {
+          e.stopPropagation();
+          onShowQr(table);
+        }}
+        title="Show QR Code"
+      >
+        <QrCode className="size-3.5" />
+      </Button>
     </div>
   );
 };
 
-const ManagerTableOverview = ({ tables: propTables, orders: propOrders, statusFilter }) => {
-  const { tables: storeTables, getTables, isLoading: tablesLoading } = useTableStore();
-  const { orders: storeOrders, getOrders, isLoading: ordersLoading } = useOrderStore();
+const TableListRow = ({ table, activeOrders, onClick, onShowQr }) => {
+  const statusKey = calculateTableStatus(table, activeOrders);
+  const statusConfig = TABLE_STATUS_CONFIG[statusKey] || TABLE_STATUS_CONFIG.available;
+  const totalAmount = activeOrders.reduce((sum, o) => sum + (o.total || 0), 0);
+  const firstOrderTime = activeOrders.length > 0
+    ? new Date(Math.min(...activeOrders.map(o => new Date(o.createdAt))))
+    : null;
+  const hasUnpaid = activeOrders.some(o => ["UNPAID", "PENDING"].includes(o.paymentStatus));
+  const hasDelayed = activeOrders.some(o => {
+    if (["COMPLETED", "CANCELLED", "DELIVERED", "READY"].includes(o.orderStatus)) return false;
+    return Date.now() - new Date(o.createdAt).getTime() > 20 * 60 * 1000;
+  });
 
-  const tables = propTables || storeTables || [];
-  const orders = propOrders || storeOrders || [];
+  const formatElapsedTime = (date) => {
+    if (!date) return "-";
+    const mins = Math.floor((Date.now() - date.getTime()) / 60000);
+    if (mins < 60) return `${mins}m`;
+    return `${Math.floor(mins / 60)}h ${mins % 60}m`;
+  };
 
-  const [viewMode, setViewMode] = useState("grid");
+  return (
+    <div
+      className="flex items-center gap-4 px-4 py-3 border-b hover:bg-muted/50 cursor-pointer transition-colors group"
+      onClick={onClick}
+    >
+      <div className={`size-2.5 rounded-full ${statusConfig.color}`} />
+      <div className="w-20 font-medium">{table.tableNumber}</div>
+      <div className="flex-1 text-sm text-muted-foreground">Main Hall</div>
+      <div className="w-16 text-center text-sm">{table.capacity}</div>
+      <div className="w-28 text-center">
+        <span className={`text-xs font-medium ${statusConfig.textColor}`}>
+          {statusConfig.label}
+        </span>
+      </div>
+      <div className="w-16 text-center text-sm">{activeOrders.length}</div>
+      <div className="w-24 text-right text-sm font-medium">
+        {totalAmount > 0 ? `${totalAmount.toLocaleString()} ETB` : "-"}
+      </div>
+      <div className="w-16 text-right text-xs text-muted-foreground">
+        {formatElapsedTime(firstOrderTime)}
+      </div>
+      <div className="w-12 text-right">
+        {(hasUnpaid || hasDelayed) && (
+          <AlertCircle className="size-4 text-red-500 animate-pulse ml-auto" />
+        )}
+      </div>
+      {/* QR Button */}
+      <Button
+        variant="ghost"
+        size="icon"
+        className="size-7 opacity-0 group-hover:opacity-100"
+        onClick={(e) => {
+          e.stopPropagation();
+          onShowQr(table);
+        }}
+        title="Show QR Code"
+      >
+        <QrCode className="size-3.5" />
+      </Button>
+    </div>
+  );
+};
+
+const QrCodeDialog = ({ table, open, onClose }) => {
+  if (!table) return null;
+
+  const customerLink = buildCustomerQrUrl(table.qrToken);
+  const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=${encodeURIComponent(customerLink)}`;
+
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(customerLink);
+      toast.success("Link copied to clipboard!");
+    } catch (err) {
+      toast.error("Failed to copy link");
+    }
+  };
+
+  const handleDownload = async () => {
+    try {
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => {
+        const padding = 60;
+        const qrSize = 280;
+        const totalWidth = qrSize + padding * 2;
+        const totalHeight = qrSize + padding * 2 + 100;
+        canvas.width = totalWidth;
+        canvas.height = totalHeight;
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, totalWidth, totalHeight);
+        ctx.fillStyle = "#1a1a1a";
+        ctx.font = "bold 20px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText(`Table ${table.tableNumber}`, totalWidth / 2, padding + 20);
+        ctx.font = "14px Arial";
+        ctx.fillStyle = "#666666";
+        ctx.fillText("Scan to view menu and order", totalWidth / 2, padding + 45);
+        ctx.drawImage(img, padding, padding + 70, qrSize, qrSize);
+        const link = document.createElement("a");
+        link.download = `table-${table.tableNumber}-qr.png`;
+        link.href = canvas.toDataURL("image/png");
+        link.click();
+      };
+      img.src = qrImageUrl;
+      toast.success("QR code downloaded!");
+    } catch (err) {
+      toast.error("Failed to download QR");
+    }
+  };
+
+  const handlePrint = () => {
+    const printWindow = window.open("", "_blank");
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Table ${table.tableNumber} - QR Code</title>
+          <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body {
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              justify-content: center;
+              min-height: 100vh;
+              font-family: Arial, sans-serif;
+              padding: 40px;
+            }
+            .restaurant-name { font-size: 24px; font-weight: bold; color: #1a1a1a; margin-bottom: 8px; text-align: center; }
+            .table-name { font-size: 32px; font-weight: bold; color: #333; margin-bottom: 8px; text-align: center; }
+            .subtitle { font-size: 14px; color: #666; margin-bottom: 30px; text-align: center; }
+            .qr-container { display: flex; justify-content: center; margin-bottom: 20px; }
+            .qr-container img { width: 280px; height: 280px; }
+            .link-text { font-size: 12px; color: #888; word-break: break-all; max-width: 400px; text-align: center; }
+          </style>
+        </head>
+        <body>
+          <div class="restaurant-name">Faarees Kaafee fi Restoorraantii</div>
+          <div class="table-name">Table ${table.tableNumber}</div>
+          <div class="subtitle">Scan to view menu and order</div>
+          <div class="qr-container"><img src="${qrImageUrl}" width="280" height="280" /></div>
+          <div class="link-text">${customerLink}</div>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+    printWindow.print();
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <QrCode className="size-5" /> Table {table.tableNumber} QR Code
+          </DialogTitle>
+        </DialogHeader>
+        <div className="flex flex-col items-center space-y-4 py-4">
+          <img
+            src={qrImageUrl}
+            alt="QR Code"
+            className="w-[280px] h-[280px] border rounded-lg p-2 bg-white"
+          />
+          <p className="text-xs text-muted-foreground text-center">Scan to view menu and order</p>
+          
+          {/* Customer Link Display */}
+          <div className="w-full space-y-2">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Link className="size-3" />
+              <span className="font-medium">Customer Link:</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Input
+                readOnly
+                value={customerLink}
+                className="text-xs bg-gray-50 dark:bg-gray-800"
+              />
+              <Button
+                variant="outline"
+                size="icon"
+                className="size-9 flex-shrink-0"
+                onClick={handleCopyLink}
+                title="Copy link"
+              >
+                <Copy className="size-3.5" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                className="size-9 flex-shrink-0"
+                onClick={() => window.open(customerLink, "_blank")}
+                title="Open link"
+              >
+                <ExternalLink className="size-3.5" />
+              </Button>
+            </div>
+          </div>
+          
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={handleDownload}>
+              <Download className="size-4" /> Download
+            </Button>
+            <Button variant="outline" size="sm" onClick={handlePrint}>
+              <Printer className="size-4" /> Print
+            </Button>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Close</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+const ManagerTableOverview = () => {
+  const { tables, getTables, isLoading: tablesLoading } = useTableStore();
+  const { orders, getOrders, isLoading: ordersLoading } = useOrderStore();
   const [selectedTable, setSelectedTable] = useState(null);
+  const [qrTable, setQrTable] = useState(null);
+  const [viewMode, setViewMode] = useState("grid");
+  const [statusFilter, setStatusFilter] = useState(undefined);
 
   useEffect(() => {
-    if (!propTables) {
-      getTables();
-    }
-  }, [propTables, getTables]);
-
-  useEffect(() => {
-    if (!propOrders) {
-      getOrders({ limit: 100 });
-    }
-  }, [propOrders, getOrders]);
+    getTables();
+    getOrders();
+  }, [getTables, getOrders]);
 
   const tableOrderMap = useMemo(() => {
     const map = {};
-    const activeOrders = orders.filter(o => !["COMPLETED", "CANCELLED"].includes(o.orderStatus));
-    activeOrders.forEach(order => {
-      if (order.tableId?._id) {
-        if (!map[order.tableId._id]) {
-          map[order.tableId._id] = [];
-        }
-        map[order.tableId._id].push(order);
-      }
+    tables.forEach(table => {
+      map[table._id] = orders.filter(o => o.tableId === table._id && !["COMPLETED", "CANCELLED"].includes(o.orderStatus));
     });
     return map;
-  }, [orders]);
+  }, [tables, orders]);
 
   const statusCounts = useMemo(() => {
-    const counts = { all: tables.length, available: 0, occupied: 0, attention: 0 };
+    const counts = {
+      all: tables.length,
+      available: 0,
+      occupied: 0,
+      ordering: 0,
+      preparing: 0,
+      ready: 0,
+      served: 0,
+      payment_pending: 0,
+      attention: 0,
+      cleaning: 0,
+    };
     tables.forEach(table => {
-      const tableOrders = tableOrderMap[table._id] || [];
-      const status = calculateTableStatus(table, tableOrders);
-      if (status === "available") counts.available++;
-      else if (["occupied", "ordering", "preparing", "ready", "served"].includes(status)) counts.occupied++;
-      else if (["attention", "payment_pending"].includes(status)) counts.attention++;
+      const status = calculateTableStatus(table, tableOrderMap[table._id] || []);
+      counts[status] = (counts[status] || 0) + 1;
     });
     return counts;
   }, [tables, tableOrderMap]);
 
+  const statusTabs = [
+    { key: undefined, label: "All", count: statusCounts.all },
+    { key: "available", label: "Free", count: statusCounts.available },
+    { key: "ordering", label: "Ordering", count: statusCounts.ordering },
+    { key: "preparing", label: "Preparing", count: statusCounts.preparing },
+    { key: "ready", label: "Ready", count: statusCounts.ready },
+    { key: "attention", label: "Alert", count: statusCounts.attention + statusCounts.payment_pending },
+  ];
+
   const filteredTables = useMemo(() => {
-    if (!statusFilter) return tables;
+    if (statusFilter === undefined) return tables;
     return tables.filter(table => {
-      const tableOrders = tableOrderMap[table._id] || [];
-      const status = calculateTableStatus(table, tableOrders);
-      if (statusFilter === "available") return status === "available";
-      if (statusFilter === "occupied") return ["occupied", "ordering", "preparing", "ready", "served"].includes(status);
-      if (statusFilter === "attention") return ["attention", "payment_pending"].includes(status);
-      return true;
+      const status = calculateTableStatus(table, tableOrderMap[table._id] || []);
+      return status === statusFilter;
     });
   }, [tables, tableOrderMap, statusFilter]);
 
-  const statusTabs = [
-    { key: null, label: "All", count: statusCounts.all },
-    { key: "available", label: "Available", count: statusCounts.available },
-    { key: "occupied", label: "Occupied", count: statusCounts.occupied },
-    { key: "attention", label: "Attention", count: statusCounts.attention },
-  ];
-
-  if (tablesLoading && tables.length === 0) {
+  if (tablesLoading || ordersLoading) {
     return (
-      <Card>
-        <CardHeader><CardTitle>Floor Overview</CardTitle></CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {[...Array(8)].map((_, i) => <Skeleton key={i} className="h-40" />)}
-          </div>
-        </CardContent>
-      </Card>
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+        {[...Array(10)].map((_, i) => (
+          <Skeleton key={i} className="h-28" />
+        ))}
+      </div>
     );
   }
 
@@ -278,6 +452,7 @@ const ManagerTableOverview = ({ tables: propTables, orders: propOrders, statusFi
                   table={table}
                   activeOrders={tableOrderMap[table._id] || []}
                   onClick={() => setSelectedTable(table)}
+                  onShowQr={setQrTable}
                 />
               ))}
             </div>
@@ -293,6 +468,7 @@ const ManagerTableOverview = ({ tables: propTables, orders: propOrders, statusFi
                 <div className="w-24 text-right">Total</div>
                 <div className="w-16 text-right">Time</div>
                 <div className="w-12 text-right">!</div>
+                <div className="w-8 text-right">QR</div>
               </div>
               {filteredTables.map(table => (
                 <TableListRow
@@ -300,6 +476,7 @@ const ManagerTableOverview = ({ tables: propTables, orders: propOrders, statusFi
                   table={table}
                   activeOrders={tableOrderMap[table._id] || []}
                   onClick={() => setSelectedTable(table)}
+                  onShowQr={setQrTable}
                 />
               ))}
             </div>
@@ -313,6 +490,12 @@ const ManagerTableOverview = ({ tables: propTables, orders: propOrders, statusFi
         open={!!selectedTable}
         onClose={() => setSelectedTable(null)}
         onOrderClick={() => {}}
+      />
+
+      <QrCodeDialog
+        table={qrTable}
+        open={!!qrTable}
+        onClose={() => setQrTable(null)}
       />
     </>
   );
