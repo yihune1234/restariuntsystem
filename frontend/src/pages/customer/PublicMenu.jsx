@@ -287,7 +287,7 @@ const PublicMenu = () => {
     return (
       <div className="min-h-screen bg-[#F8F4EE] dark:bg-gray-900">
         <header className="bg-[#211C18] text-amber-400 sticky top-0 z-30 shadow-lg">
-          <div className="px-4 py-2.5">
+          <div className="px-3 sm:px-4 py-2 sm:py-2.5">
             <Skeleton className="h-8 w-48 bg-amber-500/20" />
             <div className="flex gap-2 mt-3 overflow-x-auto">
               {[1, 2, 3].map((i) => (
@@ -334,8 +334,8 @@ const PublicMenu = () => {
   return (
     <div className="min-h-screen bg-[#F8F4EE] dark:bg-gray-900 flex flex-col">
       <header className="bg-[#211C18] text-amber-400 sticky top-0 z-30 shadow-lg">
-        <div className="px-4 py-2.5">
-          <div className="flex items-center justify-between mb-2 gap-3">
+        <div className="px-3 sm:px-4 py-2 sm:py-2.5">
+          <div className="flex items-center justify-between mb-1 sm:mb-2 gap-2 sm:gap-3">
             <div className="flex items-center gap-3 min-w-0">
               {restaurant?.logoUrl ? (
                 <img
@@ -349,11 +349,11 @@ const PublicMenu = () => {
                 </div>
               )}
               <div className="min-w-0">
-                <h1 className="text-lg font-bold text-amber-400 truncate leading-tight">
+                <h1 className="text-base sm:text-lg font-bold text-amber-400 truncate leading-tight">
                   {restaurant?.name || "Faarees Kafee fi Restorraanti"}
                 </h1>
                 {restaurant?.nameAm && (
-                  <p className="text-xs text-gray-300 truncate">{restaurant.nameAm}</p>
+                  <p className="hidden sm:block text-xs text-gray-300 truncate">{restaurant.nameAm}</p>
                 )}
               </div>
             </div>
@@ -362,11 +362,11 @@ const PublicMenu = () => {
 
           {/* Active Meal Period Indicator */}
           {activeMealPeriods.length > 0 && (
-            <div className="mb-1.5 flex items-center gap-2 flex-wrap">
+            <div className="mb-1 sm:mb-1.5 flex items-center gap-1.5 sm:gap-2 flex-wrap">
               {activeMealPeriods.map((mp) => (
                 <div
                   key={mp.id}
-                  className="flex items-center gap-1.5 px-2.5 py-1 bg-[#C85A32] rounded-full text-xs font-medium text-white"
+                  className="flex items-center gap-1.5 px-2 sm:px-2.5 py-0.5 sm:py-1 bg-[#C85A32] rounded-full text-xs font-medium text-white"
                 >
                   <Coffee className="size-3" />
                   <span>{getDisplayName(mp, lang) || mp.name}</span>
@@ -377,14 +377,14 @@ const PublicMenu = () => {
           )}
 
           {/* Time Bar Tabs */}
-          <div className="flex gap-1.5 mb-1.5 overflow-x-auto pb-1 scrollbar-hide">
+          <div className="flex gap-1 sm:gap-1.5 mb-1 sm:mb-1.5 overflow-x-auto pb-1 scrollbar-hide">
             {timeTabs.map((t) => {
               const Icon = t.icon || LayoutGrid;
               return (
                 <button
                   key={t.key}
                   onClick={() => setTimeTab(t.key)}
-                  className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all flex-shrink-0 ${
+                  className={`flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-full text-xs sm:text-sm font-medium whitespace-nowrap transition-all flex-shrink-0 ${
                     timeTab === t.key
                       ? "bg-[#D97706] text-white shadow-md"
                       : "bg-[#2D2722] text-[#E5E7EB] hover:bg-white/10"
@@ -398,10 +398,10 @@ const PublicMenu = () => {
           </div>
 
           {/* Category Filter */}
-          <div className="flex gap-1.5 mb-1.5 overflow-x-auto pb-1 scrollbar-hide">
+          <div className="flex gap-1 sm:gap-1.5 mb-1 sm:mb-1.5 overflow-x-auto pb-1 scrollbar-hide">
             <button
               onClick={() => setSelectedCategory("all")}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all flex-shrink-0 ${
+              className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all flex-shrink-0 ${
                 activeCategory === "all"
                   ? "bg-[#D97706] text-white shadow-md"
                   : "bg-[#2D2722] text-[#E5E7EB] hover:bg-white/10"
@@ -416,7 +416,7 @@ const PublicMenu = () => {
                 <button
                   key={cat.id}
                   onClick={() => setSelectedCategory(cat.id)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all flex-shrink-0 ${
+                  className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all flex-shrink-0 ${
                     selected
                       ? "bg-[#D97706] text-white shadow-md"
                       : "bg-[#2D2722] text-[#E5E7EB] hover:bg-white/10"
@@ -432,12 +432,20 @@ const PublicMenu = () => {
           </div>
 
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-amber-600" />
+            {restaurant?.logoUrl ? (
+              <img
+                src={restaurant.logoUrl}
+                alt=""
+                className="absolute left-2.5 top-1/2 -translate-y-1/2 size-5 rounded-full object-cover bg-[#2D2722] ring-1 ring-amber-500/40 pointer-events-none"
+              />
+            ) : (
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-amber-600" />
+            )}
             <input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search menu..."
-              className="w-full pl-10 pr-10 py-2 rounded-xl border-0 bg-[#2D2722] text-[#F5F0EB] text-sm placeholder:text-[#9A8F86] focus:outline-none focus:ring-2 focus:ring-amber-500"
+              className="w-full pl-10 pr-10 py-1.5 sm:py-2 rounded-xl border-0 bg-[#2D2722] text-[#F5F0EB] text-sm placeholder:text-[#9A8F86] focus:outline-none focus:ring-2 focus:ring-amber-500"
             />
             {searchQuery && (
               <button
