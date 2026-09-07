@@ -20,8 +20,8 @@
 
 /** Visible brand for the default restaurant. */
 export const DEFAULT_RESTAURANT = {
-  nameEn: "Faarees Kaafee fi Restoorraantii",
-  nameAm: "ፋሪስ ካፌ እና ሪስቶራንት",
+  nameEn: "Faarees Kafee fi Restorraanti",
+  nameAm: "ፋሬስ ካፌ እና ሬስቶራንት",
   logoText: "Faarees",
   tagline: "Specialty coffee & traditional dishes, served fresh every day.",
   description:
