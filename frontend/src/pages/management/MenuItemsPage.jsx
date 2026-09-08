@@ -633,14 +633,18 @@ const FoodDialog = ({ open, onClose, food, categories, mealPeriods, onSave }) =>
   const handleImageUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (!food?._id) {
+      toast.error("Please save the item first before uploading an image");
+      return;
+    }
     setUploading(true);
     const formData = new FormData();
-    formData.append("file", file);
+    formData.append("image", file);
     try {
-      const res = await axiosInstance.post("/uploads", formData, {
+      const res = await axiosInstance.post(`/food-items/${food._id}/image`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
-      const url = res.data?.data?.url;
+      const url = res.data?.data?.imageUrl;
       if (url) {
         setForm((f) => ({ ...f, imageUrl: url }));
         toast.success("Image uploaded");
@@ -817,10 +821,11 @@ const FoodDialog = ({ open, onClose, food, categories, mealPeriods, onSave }) =>
                   placeholder="Paste image URL here..."
                   className="h-9 flex-1"
                 />
-                <label className="flex items-center gap-2 px-3 h-9 border border-gray-200 dark:border-gray-700 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 flex-shrink-0">
+                <label className="flex items-center gap-2 px-3 h-9 border border-gray-200 dark:border-gray-700 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 flex-shrink-0 opacity-100"
+                style={{ opacity: food?._id ? 1 : 0.5 }}>
                   <ImagePlus className="size-4" />
                   <span className="text-xs sm:text-sm whitespace-nowrap">{uploading ? "..." : "Upload"}</span>
-                  <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" disabled={uploading} />
+                  <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" disabled={uploading || !food?._id} />
                 </label>
               </div>
               {/* Preview (with default placeholder fallback) */}
