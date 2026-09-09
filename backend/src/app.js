@@ -23,6 +23,10 @@ app.use(
   helmet({
     contentSecurityPolicy: config.isProduction ? undefined : false,
     crossOriginEmbedderPolicy: false,
+    // Allow the separately-hosted frontend (e.g. Vercel) to load images served
+    // by this backend (local /uploads fallback images). Without this, browsers
+    // block the images with ERR_BLOCKED_BY_RESPONSE.NotSameOrigin.
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
   })
 );
 

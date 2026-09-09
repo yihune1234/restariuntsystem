@@ -45,4 +45,37 @@ router.post(
   uploadController.uploadFoodImage
 );
 
+/**
+ * @openapi
+ * /uploads:
+ *   post:
+ *     summary: General image upload (logo/cover branding, Manager only)
+ *     tags:
+ *       - Menu - Food Items
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - file
+ *             properties:
+ *               file:
+ *                 type: string
+ *                 format: binary
+ *     responses:
+ *       200:
+ *         description: Image uploaded, returns { data: { url, publicId } }
+ */
+router.post(
+  '/',
+  authenticateStaff,
+  requireRoles('OWNER', 'MANAGER'),
+  upload.single('file'),
+  uploadController.uploadImage
+);
+
 module.exports = router;

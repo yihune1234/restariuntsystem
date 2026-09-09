@@ -26,6 +26,7 @@ router.use('/users', userRouter);
 router.use('/categories', categoryRouter);
 router.use('/meal-periods', mealPeriodRouter);
 router.use('/food-items', uploadRoutes);
+router.use('/uploads', uploadRoutes);
 router.use('/food-items', foodRouter);
 router.use('/admin', adminSettingsRoutes);
 

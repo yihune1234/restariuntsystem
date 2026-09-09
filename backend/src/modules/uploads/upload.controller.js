@@ -47,6 +47,30 @@ class UploadController {
       imagePublicId: updatedFood.imagePublicId,
     });
   });
+
+  /**
+   * General-purpose image upload (restaurant branding logo / cover, etc.).
+   * Responds with { data: { url, publicId } } — the branding page reads
+   * res.data.data.url from this endpoint.
+   */
+  uploadImage = asyncHandler(async (req, res) => {
+    if (!req.file) {
+      throw new BadRequestError('Please provide an image file (field name: file)', 'MISSING_IMAGE_FILE');
+    }
+
+    const uploadResult = await uploadService.uploadImageBuffer(
+      req.file.buffer,
+      'restraunt/branding',
+      req.file.mimetype
+    );
+
+    const absoluteImageUrl = toAbsoluteUrl(uploadResult.imageUrl, req);
+
+    return ApiResponse.success(res, 200, 'Image uploaded successfully', {
+      url: absoluteImageUrl,
+      publicId: uploadResult.imagePublicId,
+    });
+  });
 }
 
 module.exports = new UploadController();
