@@ -28,7 +28,7 @@ class UploadController {
     // 1. Upload new image buffer (Cloudinary when configured, local disk otherwise)
     const uploadResult = await uploadService.uploadImageBuffer(
       req.file.buffer,
-      `restaurants/branches/${req.user.branchId || 'general'}/foods`,
+      `restraunt/foods`,
       req.file.mimetype
     );
 

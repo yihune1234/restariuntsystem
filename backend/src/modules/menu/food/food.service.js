@@ -81,6 +81,27 @@ class FoodService {
       }
     }
 
+    // When the image URL is being overwritten (e.g. admin pastes a new link),
+    // clean up the previously stored image (Cloudinary / local disk) so orphans
+    // are not left behind. Only the dedicated /image upload endpoint previously
+    // performed this cleanup.
+    if (typeof updateData.imageUrl === 'string') {
+      const existing = await this.getFoodItemById(foodId);
+      if (
+        existing.imagePublicId &&
+        existing.imageUrl &&
+        existing.imageUrl !== updateData.imageUrl
+      ) {
+        try {
+          await uploadService.deleteImage(existing.imagePublicId);
+          // Clear the public id since it no longer maps to a stored asset.
+          updateData.imagePublicId = '';
+        } catch (err) {
+          logger.warn(`Failed to delete old image: ${err.message}`);
+        }
+      }
+    }
+
     const foodItem = await FoodItem.findOneAndUpdate(
       { _id: foodId, deletedAt: null },
       { $set: updateData },

@@ -41,6 +41,7 @@ const createFoodSchema = {
     mealScheduleIds: Joi.array().items(Joi.string().hex().length(24)).default([]),
     tags: Joi.array().items(Joi.string().max(50)).default([]),
     variantGroups: Joi.array().items(VARIANT_GROUP_SCHEMA).default([]),
+    imageUrl: Joi.string().allow('').max(2048).default(''),
   }),
 };
 
@@ -69,6 +70,7 @@ const updateFoodSchema = {
     mealScheduleIds: Joi.array().items(Joi.string().hex().length(24)),
     tags: Joi.array().items(Joi.string().max(50)),
     variantGroups: Joi.array().items(VARIANT_GROUP_SCHEMA),
+    imageUrl: Joi.string().allow('').max(2048),
   }),
 };
 

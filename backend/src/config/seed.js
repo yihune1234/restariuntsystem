@@ -16,21 +16,30 @@ const IMG = {
   milk: 'https://images.unsplash.com/photo-1550583724-b2692b85b150?w=900&h=700&fit=crop&q=85',
   yogurt: 'https://images.unsplash.com/photo-1488477181946-6428a0291777?w=900&h=700&fit=crop&q=85',
   macchiato: 'https://images.unsplash.com/photo-1534778101976-62847782c213?w=900&h=700&fit=crop&q=85',
-  coffee: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=900&h=700&fit=crop&q=85',
+  // Traditional buna: jebena pouring into sini (cini) cups — verified Commons file.
+  coffee: 'https://commons.wikimedia.org/wiki/Special:FilePath/Ethiopian_coffee_ceremony_jebena_and_finjan.jpg?width=600',
   soda: 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=900&h=700&fit=crop&q=85',
-  water: 'https://commons.wikimedia.org/wiki/Special:FilePath/Glass_of_cold_mineral_water.jpg?width=600',
+  // Bottled water (plastic bottles, Ethiopian-style retail presentation) — verified HTTP 200.
+  waterSmall: 'https://images.unsplash.com/photo-1560023907-5f339617ea30?w=900&h=700&fit=crop&q=85',
+  water: 'https://images.unsplash.com/photo-1602143407151-7111542de6e8?w=900&h=700&fit=crop&q=85',
+  waterLarge: 'https://images.unsplash.com/photo-1548839140-29a749e1cf4d?w=900&h=700&fit=crop&q=85',
   eggs: 'https://images.unsplash.com/photo-1525351484163-7529414344d8?w=900&h=700&fit=crop&q=85',
   sandwich: 'https://images.unsplash.com/photo-1509722747041-616f39b57569?w=900&h=700&fit=crop&q=85',
   pasta: 'https://images.unsplash.com/photo-1551183053-bf91a1d81141?w=900&h=700&fit=crop&q=85',
   rice: 'https://images.unsplash.com/photo-1512058564366-18510be2db19?w=900&h=700&fit=crop&q=85',
-  fulSpecial: 'https://commons.wikimedia.org/wiki/Special:FilePath/Ful_Medames.JPG?width=600',
-  fulNormal: 'https://commons.wikimedia.org/wiki/Special:FilePath/Ful_medames_%28arabic_meal%29.jpg?width=600',
-  chechebsa: 'https://commons.wikimedia.org/wiki/Special:FilePath/Kita_herb_bread.jpg?width=600',
+  // Ethiopian-style ful: bowl of ful with bread, tomatoes/pickles on the side — verified Commons files.
+  fulSpecial: 'https://commons.wikimedia.org/wiki/Special:FilePath/Ful_medames_(cropped).jpg?width=600',
+  fulNormal: 'https://commons.wikimedia.org/wiki/Special:FilePath/Ful_Medames.JPG?width=600',
+  // Chechebsa (kita firfir): torn kita with spiced butter/berbere — verified Commons file.
+  chechebsa: 'https://commons.wikimedia.org/wiki/Special:FilePath/Chipchipsa_Ethiopian_dish_2014.jpg?width=600',
   dryFirfir: 'https://commons.wikimedia.org/wiki/Special:FilePath/Kitcha_fit_fit.png?width=600',
   beefFirfir: 'https://commons.wikimedia.org/wiki/Special:FilePath/Firfir.JPG?width=600',
-  tibs: 'https://commons.wikimedia.org/wiki/Special:FilePath/Siga_Tibs.jpg?width=600',
+  // Beef tibs served on injera platter — verified Commons file.
+  tibs: 'https://commons.wikimedia.org/wiki/Special:FilePath/Tibs_and_Injera.jpg?width=600',
   shiro: 'https://commons.wikimedia.org/wiki/Special:FilePath/Enjera_be_shiro_wot.jpg?width=600',
   tegabino: 'https://commons.wikimedia.org/wiki/Special:FilePath/%27Shiro%27.JPG?width=600',
+  // Mixed combo platter (beyaynetu-style assorted dishes on injera) — verified Commons file.
+  combo: 'https://commons.wikimedia.org/wiki/Special:FilePath/Non-fasting_Beyaynetu_in_Yod_Abyssinia_1.jpg?width=600',
 };
 
 const seedData = async () => {
@@ -202,10 +211,10 @@ const seedData = async () => {
     // ──────────────────────────────────────────────
     const coldDrinks = [
       food({ catId: coldCat._id, nameEn: 'Soft Drinks (Coca / Fanta / Sprite)', nameOm: 'Dhugaatii Lasiilaasaa', nameAm: 'ለስላሳ መጠጦች', price: 50, imageUrl: IMG.soda, desc: 'Assorted soft drinks', descOm: 'Dhugaatii lasiilaasaa', descAm: 'ለስላሳ መጠጦች', always: true, order: 1 }),
-      food({ catId: coldCat._id, nameEn: 'Mineral Water 2L', nameOm: 'Bishaan Litira 2', nameAm: '2 ሊትር ውሃ', price: 80, imageUrl: IMG.water, desc: 'Pure mineral water, 2 liters', descOm: 'Bishaan filebaraa litira 2', descAm: '2 ሊትር ንጹህ ውሃ', always: true, order: 2 }),
-      food({ catId: coldCat._id, nameEn: 'Mineral Water 1L', nameOm: 'Bishaan Litira 1', nameAm: '1 ሊትር ውሃ', price: 50, imageUrl: IMG.water, desc: 'Pure mineral water, 1 liter', descOm: 'Bishaan filebaraa litira 1', descAm: '1 ሊትር ንጹህ ውሃ', always: true, order: 3 }),
-      food({ catId: coldCat._id, nameEn: 'Mineral Water 0.5L', nameOm: 'Bishaan Litira 0.5', nameAm: '0.5 ሊትር ውሃ', price: 30, imageUrl: IMG.water, desc: 'Pure mineral water, half liter', descOm: 'Bishaan filebaraa litira 0.5', descAm: '0.5 ሊትር ንጹህ ውሃ', always: true, order: 4 }),
-      food({ catId: coldCat._id, nameEn: 'Ambo Mineral Water', nameOm: 'Amboo Filebaraa', nameAm: 'አምቦ ውሃ', price: 45, imageUrl: IMG.water, desc: 'Ambo natural mineral water', descOm: 'Amboo filebaraa', descAm: 'አምቦ ተፈጥሮ ውሃ', always: true, order: 5 }),
+      food({ catId: coldCat._id, nameEn: 'Mineral Water 2L', nameOm: 'Bishaan Boonsaa 2L (Amboo)', nameAm: '2 ሊትር የምቦ ውሃ', price: 80, imageUrl: IMG.waterLarge, desc: 'Ambo natural mineral water, 2 liters', descOm: 'Amboo bishaan boonsaa litira 2', descAm: '2 ሊትር አምቦ ተፈጥሯዊ የምቦ ውሃ', always: true, order: 2 }),
+      food({ catId: coldCat._id, nameEn: 'Mineral Water 1L', nameOm: 'Bishaan Boonsaa 1L (Amboo)', nameAm: '1 ሊትር የምቦ ውሃ', price: 50, imageUrl: IMG.water, desc: 'Ambo natural mineral water, 1 liter', descOm: 'Amboo bishaan boonsaa litira 1', descAm: '1 ሊትር አምቦ ተፈጥሯዊ ውሃ', always: true, order: 3 }),
+      food({ catId: coldCat._id, nameEn: 'Mineral Water 0.5L', nameOm: 'Bishaan Boonsaa 0.5L (Amboo)', nameAm: '0.5 ሊትር የምቦ ውሃ', price: 30, imageUrl: IMG.waterSmall, desc: 'Ambo natural mineral water, half liter', descOm: 'Amboo bishaan boonsaa gammekka', descAm: '0.5 ሊትር አምቦ ተፈጥሯዊ ውሃ', always: true, order: 4 }),
+      food({ catId: coldCat._id, nameEn: 'Ambo Mineral Water', nameOm: 'Amboo Filebaraa', nameAm: 'አምቦ የምቦ ውሃ', price: 45, imageUrl: IMG.water, desc: 'Ambo natural mineral water', descOm: 'Amboo filebaraa', descAm: 'አምቦ ተፈጥሯዊ ብራንድ ውሃ', always: true, order: 5 }),
       food({ catId: coldCat._id, nameEn: 'Novida', nameOm: 'Noviidaa', nameAm: 'ኖቪዳ', price: 50, imageUrl: IMG.soda, desc: 'Refreshing fruit flavored drink', descOm: 'Dhugaatii qabbanaawaa', descAm: 'ለሚያርፍ ፍራፍሬ መጠጥ', always: true, order: 6 }),
     ];
 
@@ -214,16 +223,16 @@ const seedData = async () => {
     // (Time restricted: Breakfast 06:00-11:30)
     // ──────────────────────────────────────────────
     const breakfastItems = [
-      food({ catId: breakfastCat._id, nameEn: 'Special Full', nameOm: 'Fuulli Ispeeshaala', nameAm: 'ስፔሻል ፉል', price: 190, imageUrl: IMG.fulSpecial, desc: 'Special full traditional breakfast', descOm: 'Fuulli ispeeshaala', descAm: 'ስፔሻል ፉል', always: false, schedules: [breakfastPeriod._id], order: 1 }),
-      food({ catId: breakfastCat._id, nameEn: 'Normal Full', nameOm: 'Fuulli Noormaala', nameAm: 'መደበኛ ፉል', price: 140, imageUrl: IMG.fulNormal, desc: 'Normal full traditional breakfast', descOm: 'Fuulli noormaala', descAm: 'መደበኛ ፉል', always: false, schedules: [breakfastPeriod._id], order: 2 }),
-      food({ catId: breakfastCat._id, nameEn: 'Chechebsa with Butter', nameOm: 'Cacabsaa Dhadhaan', nameAm: 'ጨጨብሳ በቅቤ', price: 190, imageUrl: IMG.chechebsa, desc: 'Chechebsa served with spiced butter', descOm: 'Cacabsaa dhadhaanitin', descAm: 'ጨጨብሳ በቅቤ የተዘጋጀ', always: false, schedules: [breakfastPeriod._id], order: 3 }),
-      food({ catId: breakfastCat._id, nameEn: 'Chechebsa with Honey & Butter', nameOm: 'Cacabsaa Dammaa fi Dhadhaan', nameAm: 'ጨጨብሳ በቅቤ እና ማር', price: 250, imageUrl: IMG.chechebsa, desc: 'Chechebsa with honey and butter', descOm: 'Cacabsaa dammaa fi dhadhaanitin', descAm: 'ጨጨብሳ በቅቤ እና ማር የተዘጋጀ', always: false, schedules: [breakfastPeriod._id], order: 4 }),
-      food({ catId: breakfastCat._id, nameEn: 'Dry Beef Firfir (Qanta)', nameOm: 'Qaanqaa Firfir', nameAm: 'ቋንጣ ፍርፍር', price: 320, imageUrl: IMG.dryFirfir, desc: 'Dry beef firfir (Qanta) with injera', descOm: 'Qaanqaa firfir irreechaan', descAm: 'ቋንጣ ፍርፍር ከእርጋ', always: false, schedules: [breakfastPeriod._id], order: 5 }),
-      food({ catId: breakfastCat._id, nameEn: 'Beef Firfir', nameOm: 'Foon Firfir', nameAm: 'የስጋ ፍርፍር', price: 300, imageUrl: IMG.beefFirfir, desc: 'Beef firfir with injera', descOm: 'Foon firfir irreechaan', descAm: 'የስጋ ፍርፍር ከእርጋ', always: false, schedules: [breakfastPeriod._id], order: 6 }),
-      food({ catId: breakfastCat._id, nameEn: 'Special Omelette', nameOm: 'Inqulaala Ispeeshaala', nameAm: 'ስፔሻል እንቁላል', price: 160, imageUrl: IMG.eggs, desc: 'Special omelette with vegetables', descOm: 'Inqulaala ispeeshaala kuduraa', descAm: 'ስፔሻል እንቁላል ከአትክልት', always: false, schedules: [breakfastPeriod._id], order: 7 }),
-      food({ catId: breakfastCat._id, nameEn: 'Scrambled Eggs with Bread', nameOm: 'Inqulaala Dhaabbataa Daabootiin', nameAm: 'እንቁላል በዳቦ', price: 140, imageUrl: IMG.eggs, desc: 'Scrambled eggs with fresh bread', descOm: 'Inqulaala dhaabbataa haaraaa', descAm: 'እንቁላል በአዲስ ዳቦ', always: false, schedules: [breakfastPeriod._id], order: 8 }),
+      food({ catId: breakfastCat._id, nameEn: 'Special Ful (Ful ispeeshaala)', nameOm: 'Fuul Ispeeshaala', nameAm: 'ስፔሻል ፉል', price: 190, imageUrl: IMG.fulSpecial, desc: 'Special ful with boiled egg, tomato, chili and bread', descOm: 'Fuul ispeeshaala istaar, timaatimii fi daaboo wajjin', descAm: 'ስፔሻል ፉል ከእንቁላል፣ ቲማቲምና ዳቦ ጋር', always: false, schedules: [breakfastPeriod._id], order: 1 }),
+      food({ catId: breakfastCat._id, nameEn: 'Normal Ful (Fuul idilee)', nameOm: 'Fuul Idilee', nameAm: 'መደበኛ ፉል', price: 140, imageUrl: IMG.fulNormal, desc: 'Ful with tomato salad and fresh bread', descOm: 'Fuul idilee timaatimii fi daaboon', descAm: 'መደበኛ ፉል ከቲማቲምና ዳቦ ጋር', always: false, schedules: [breakfastPeriod._id], order: 2 }),
+      food({ catId: breakfastCat._id, nameEn: 'Chechebsa with Butter', nameOm: 'Cacabsaa Dhadhaan', nameAm: 'ጨጨብሳ በቅቤ', price: 190, imageUrl: IMG.chechebsa, desc: 'Kita firfir with spiced butter and berbere', descOm: 'Cacabsaa dhadhaa fi berebereen', descAm: 'ጨጨብሳ በቅቤና በርበሬ የተዘጋጀ', always: false, schedules: [breakfastPeriod._id], order: 3 }),
+      food({ catId: breakfastCat._id, nameEn: 'Chechebsa with Honey & Butter', nameOm: 'Cacabsaa Dammaa fi Dhadhaan', nameAm: 'ጨጨብሳ በቅቤ እና ማር', price: 250, imageUrl: IMG.chechebsa, desc: 'Chechebsa with honey and spiced butter', descOm: 'Cacabsaa dammaa fi dhadhaanitin', descAm: 'ጨጨብሳ በቅቤና ማር የተዘጋጀ', always: false, schedules: [breakfastPeriod._id], order: 4 }),
+      food({ catId: breakfastCat._id, nameEn: 'Dry Beef Firfir (Qanta)', nameOm: 'Qaantaa Firfir', nameAm: 'ቋንጣ ፍርፍር', price: 320, imageUrl: IMG.dryFirfir, desc: 'Dry beef firfir (Qanta) with injera', descOm: 'Qaantaa firfir irreechaan', descAm: 'ቋንጣ ፍርፍር ከእንጀራ ጋር', always: false, schedules: [breakfastPeriod._id], order: 5 }),
+      food({ catId: breakfastCat._id, nameEn: 'Beef Firfir', nameOm: 'Foon Firfir', nameAm: 'የስጋ ፍርፍር', price: 300, imageUrl: IMG.beefFirfir, desc: 'Beef firfir with injera', descOm: 'Foon firfir irreechaan', descAm: 'የስጋ ፍርፍር ከእንጀራ ጋር', always: false, schedules: [breakfastPeriod._id], order: 6 }),
+      food({ catId: breakfastCat._id, nameEn: 'Special Omelette', nameOm: 'Omeletii Ispeeshaala', nameAm: 'ስፔሻል ኦሜሌት', price: 160, imageUrl: IMG.eggs, desc: 'Special omelette with vegetables', descOm: 'Omeletii ispeeshaala kuduraa', descAm: 'ስፔሻል ኦሜሌት ከአትክልት ጋር', always: false, schedules: [breakfastPeriod._id], order: 7 }),
+      food({ catId: breakfastCat._id, nameEn: 'Scrambled Eggs with Bread', nameOm: 'Inqulaala Dhaabbataa Daaboon', nameAm: 'እንቁላል በዳቦ', price: 140, imageUrl: IMG.eggs, desc: 'Scrambled eggs with fresh bread', descOm: 'Inqulaala dhaabbataa daaboo haaraatin', descAm: 'እንቁላል ከአዲስ ዳቦ ጋር', always: false, schedules: [breakfastPeriod._id], order: 8 }),
       food({ catId: breakfastCat._id, nameEn: 'Tuna Sandwich', nameOm: 'Sanduuchii Tunaa', nameAm: 'ቱና ሳንድዊች', price: 270, imageUrl: IMG.sandwich, desc: 'Fresh tuna sandwich', descOm: 'Sanduuchii tunaa haaraa', descAm: 'አዲስ ቱና ሳንድዊች', always: false, schedules: [breakfastPeriod._id], order: 9 }),
-      food({ catId: breakfastCat._id, nameEn: 'Veggie Sandwich', nameOm: 'Sanduuchii Kuduraa', nameAm: 'የትክልት ሳንድዊች', price: 160, imageUrl: IMG.sandwich, desc: 'Fresh vegetable sandwich', descOm: 'Sanduuchii kuduraa haaraa', descAm: 'አዲስ የትክልት ሳንድዊች', always: false, schedules: [breakfastPeriod._id], order: 10 }),
+      food({ catId: breakfastCat._id, nameEn: 'Veggie Sandwich', nameOm: 'Sanduuchii Kuduraa', nameAm: 'የአትክልት ሳንድዊች', price: 160, imageUrl: IMG.sandwich, desc: 'Fresh vegetable sandwich', descOm: 'Sanduuchii kuduraa haaraa', descAm: 'አዲስ የአትክልት ሳንድዊች', always: false, schedules: [breakfastPeriod._id], order: 10 }),
     ];
 
     // ──────────────────────────────────────────────
@@ -231,13 +240,13 @@ const seedData = async () => {
     // (Time restricted: Lunch & Dinner 11:30-22:30)
     // ──────────────────────────────────────────────
     const mainDishes = [
-      food({ catId: mainCat._id, nameEn: 'Special Beef Tibs', nameOm: 'Tibsii Ispeeshaala', nameAm: 'ስፔሻል ጥብስ', price: 500, imageUrl: IMG.tibs, desc: 'Premium beef tibs with vegetables', descOm: 'Tibsii ispeeshaala kuduraa', descAm: 'ፕሪሚየም ጥብስ ከስጋ እና አትክልት', always: false, schedules: [lunchDinnerPeriod._id], order: 1 }),
-      food({ catId: mainCat._id, nameEn: 'Beef Tibs', nameOm: 'Foon Tibsii', nameAm: 'የስጋ ጥብስ', price: 430, imageUrl: IMG.tibs, desc: 'Beef tibs with injera', descOm: 'Foon tibsii irreechaan', descAm: 'የስጋ ጥብስ ከእርጋ', always: false, schedules: [lunchDinnerPeriod._id], order: 2 }),
+      food({ catId: mainCat._id, nameEn: 'Special Beef Tibs', nameOm: 'Tibsii Ispeeshaala', nameAm: 'ስፔሻል ጥብስ', price: 500, imageUrl: IMG.tibs, desc: 'Premium beef tibs served on injera', descOm: 'Tibsii ispeeshaala irreechaan', descAm: 'ስፔሻል ጥብስ በእንጀራ ላይ', always: false, schedules: [lunchDinnerPeriod._id], order: 1 }),
+      food({ catId: mainCat._id, nameEn: 'Beef Tibs', nameOm: 'Foon Tibsii', nameAm: 'የስጋ ጥብስ', price: 430, imageUrl: IMG.tibs, desc: 'Beef tibs with injera', descOm: 'Foon tibsii irreechaan', descAm: 'የስጋ ጥብስ ከእንጀራ ጋር', always: false, schedules: [lunchDinnerPeriod._id], order: 2 }),
       food({ catId: mainCat._id, nameEn: 'Shiro Wot with Butter', nameOm: 'Shiroo Dhadhaan', nameAm: 'ሽሮ በቅቤ', price: 180, imageUrl: IMG.shiro, desc: 'Chickpea stew with butter', descOm: 'Shiroo dhadhaanitin', descAm: 'ሽሮ በቅቤ የተዘጋጀ', always: false, schedules: [lunchDinnerPeriod._id], order: 3 }),
-      food({ catId: mainCat._id, nameEn: 'Tegabino Shiro', nameOm: 'Tegabiinoo Shiroo', nameAm: 'ተጋቢኖ ሽሮ', price: 210, imageUrl: IMG.tegabino, desc: 'Tegabino shiro with injera', descOm: 'Tegabiinoo shiroo irreechaan', descAm: 'ተጋቢኖ ሽሮ ከእርጋ', always: false, schedules: [lunchDinnerPeriod._id], order: 4 }),
-      food({ catId: mainCat._id, nameEn: 'Pasta with Meat Sauce', nameOm: 'Paastaa Fooniin', nameAm: 'ፓስታ በስጋ', price: 250, imageUrl: IMG.pasta, desc: 'Pasta with rich meat sauce', descOm: 'Paastaa fooniin', descAm: 'ፓስታ ከስጋ ማረፊያ', always: false, schedules: [lunchDinnerPeriod._id], order: 5 }),
+      food({ catId: mainCat._id, nameEn: 'Tegabino Shiro', nameOm: 'Tegabiinoo Shiroo', nameAm: 'ተጋቢኖ ሽሮ', price: 210, imageUrl: IMG.tegabino, desc: 'Tegabino shiro with injera', descOm: 'Tegabiinoo shiroo irreechaan', descAm: 'ተጋቢኖ ሽሮ ከእንጀራ ጋር', always: false, schedules: [lunchDinnerPeriod._id], order: 4 }),
+      food({ catId: mainCat._id, nameEn: 'Pasta with Meat Sauce', nameOm: 'Paastaa Fooniin', nameAm: 'ፓስታ በስጋ', price: 250, imageUrl: IMG.pasta, desc: 'Pasta with rich meat sauce', descOm: 'Paastaa fooniin', descAm: 'ፓስታ ከስጋ ሾርባ ጋር', always: false, schedules: [lunchDinnerPeriod._id], order: 5 }),
       food({ catId: mainCat._id, nameEn: 'Rice with Meat', nameOm: 'Ruuza Fooniin', nameAm: 'ሩዝ በስጋ', price: 280, imageUrl: IMG.rice, desc: 'Rice served with meat', descOm: 'Ruuza fooniin', descAm: 'ሩዝ ከስጋ ጋር', always: false, schedules: [lunchDinnerPeriod._id], order: 6 }),
-      food({ catId: mainCat._id, nameEn: 'Special Combo Feast', nameOm: 'Komboo Ispeeshaala', nameAm: 'ስፔሻል ኮምቦ', price: 650, imageUrl: IMG.tibs, desc: 'Special combo platter with assorted dishes', descOm: 'Komboo ispeeshaala', descAm: 'ስፔሻል ኮምቦ ከተለያዩ ምግቦች', always: false, schedules: [lunchDinnerPeriod._id], order: 7 }),
+      food({ catId: mainCat._id, nameEn: 'Special Combo (Beyaynetu)', nameOm: 'Komboo Ispeeshaala (Baayenetuu)', nameAm: 'ስፔሻል ኮምቦ (በያይነቱ)', price: 650, imageUrl: IMG.combo, desc: 'Assorted Ethiopian dishes on injera platter', descOm: 'Nyaata adda addaa irreecha irratti', descAm: 'ስፔሻል ኮምቦ በእንጀራ ላይ የተለያዩ ምግቦች', always: false, schedules: [lunchDinnerPeriod._id], order: 7 }),
     ];
 
     const allFoodItems = [...hotDrinks, ...coldDrinks, ...breakfastItems, ...mainDishes];
