@@ -68,7 +68,7 @@ router.post(
  *                 format: binary
  *     responses:
  *       200:
- *         description: Image uploaded, returns { data: { url, publicId } }
+ *         description: Image uploaded successfully
  */
 router.post(
   '/',
