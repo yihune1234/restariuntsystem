@@ -5,11 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Edit, Trash2, ChevronUp, ChevronDown, FolderTree, Check, Clock, CornerDownRight } from "lucide-react";
+import { Plus, Edit, Trash2, ChevronUp, ChevronDown, CornerDownRight, FolderTree, Check } from "lucide-react";
 
 const CategoriesPage = ({ onRefresh }) => {
   const [categories, setCategories] = useState([]);
-  const [mealPeriods, setMealPeriods] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState(null);
@@ -26,18 +25,8 @@ const CategoriesPage = ({ onRefresh }) => {
     }
   };
 
-  const fetchMealPeriods = async () => {
-    try {
-      const res = await axiosInstance.get("/meal-periods");
-      setMealPeriods(res.data?.data || []);
-    } catch {
-      // Meal periods may not exist yet
-    }
-  };
-
   useEffect(() => {
     fetchCategories();
-    fetchMealPeriods();
   }, []);
 
   const toggleActive = async (cat, newValue) => {
@@ -58,8 +47,9 @@ const CategoriesPage = ({ onRefresh }) => {
 
     const newCategories = [...categories];
     const tempOrder = newCategories[idx].displayOrder;
-    newCategories[idx].displayOrder = newCategories[newCategories[newIdx]._id].displayOrder;
+    newCategories[idx].displayOrder = newCategories[newIdx].displayOrder;
     newCategories[newIdx].displayOrder = tempOrder;
+    newCategories.sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
     setCategories(newCategories);
 
     try {
@@ -124,15 +114,20 @@ const CategoriesPage = ({ onRefresh }) => {
             ))}
           </div>
         ) : categories.length === 0 ? (
-          <div className="p-6 sm:p-8 text-center">
-            <div className="w-12 h-12 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-3">
-              <FolderTree className="size-6 text-gray-400" />
+          <div className="p-8 sm:p-12 text-center">
+            <div className="size-16 mx-auto rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center mb-4">
+              <FolderTree className="size-8 text-gray-300 dark:text-gray-500" />
             </div>
-            <h3 className="text-sm sm:text-base font-semibold text-gray-900 dark:text-white mb-1">No categories yet</h3>
-            <p className="text-xs text-gray-500 mb-4">Create your first category to organize your menu</p>
-            <Button onClick={() => { setEditingCategory(null); setDialogOpen(true); }} className="bg-amber-600 hover:bg-amber-700 h-9 text-sm">
+            <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">No categories yet</p>
+            <p className="text-xs text-gray-400 mt-1 max-w-xs mx-auto">
+              Create your first category to organize menu items. You can also add sub-categories.
+            </p>
+            <Button
+              onClick={() => { setEditingCategory(null); setDialogOpen(true); }}
+              className="bg-amber-600 hover:bg-amber-700 h-9 text-sm mt-4"
+            >
               <Plus className="size-4 mr-1.5" />
-              Add Category
+              Add First Category
             </Button>
           </div>
         ) : (
@@ -172,10 +167,9 @@ const CategoriesPage = ({ onRefresh }) => {
 
       <CategoryDialog
         open={dialogOpen}
-        onClose={() => setDialogOpen(false)}
+        onClose={() => { setDialogOpen(false); setEditingCategory(null); }}
         category={editingCategory}
         categories={categories}
-        mealPeriods={mealPeriods}
         onSave={() => {
           setDialogOpen(false);
           onRefresh();
@@ -219,34 +213,21 @@ const CategoryRow = ({ cat, idx, totalCount, isChild, parentName, onEdit, onDele
           </h3>
           {cat.isActive && <Check className="size-3 text-green-500 flex-shrink-0" />}
           {!cat.isActive && (
-            <span className="text-xs px-1.5 py-0.5 bg-gray-200 dark:bg-gray-700 rounded text-gray-500">Inactive</span>
-          )}
-          {cat.mealScheduleIds && cat.mealScheduleIds.length > 0 && (
-            <span className="text-xs px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded flex items-center gap-1">
-              <Clock className="size-3" />
-              {cat.mealScheduleIds.length} schedule{cat.mealScheduleIds.length > 1 ? "s" : ""}
-            </span>
+            <span className="text-[10px] px-1.5 py-0.5 bg-gray-200 dark:bg-gray-700 rounded text-gray-500 uppercase tracking-wide font-medium">Hidden</span>
           )}
         </div>
-        {(cat.nameOm || cat.nameAm) && (
-          <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5 text-xs text-gray-500">
-            {cat.nameOm && <span>OM: {cat.nameOm}</span>}
-            {cat.nameAm && <span>AM: {cat.nameAm}</span>}
-          </div>
+         {(cat.nameOm || cat.nameAm) && (
+           <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5 text-xs text-gray-500">
+             {cat.nameOm && <span>OM: {cat.nameOm}</span>}
+             {cat.nameAm && <span>AM: {cat.nameAm}</span>}
+           </div>
+         )}
+        {isChild && parentName && (
+          <div className="text-xs text-gray-400 mt-0.5">Sub-category of {parentName}</div>
         )}
-        <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5 text-xs text-gray-400">
-          {(cat.mealScheduleIds || []).map((ms, i) => (
-            <span key={ms._id || ms || i}>
-              {ms.name || ms.nameEn || ""} ({ms.startTime} - {ms.endTime})
-            </span>
-          ))}
-          {cat.parentId && !isChild && (
-            <span>Parent: {parentName}</span>
-          )}
-        </div>
       </div>
 
-      {/* Right Side: Toggle & Actions */}
+      {/* Actions */}
       <div className="flex items-center gap-1 flex-shrink-0">
         <Switch
           checked={cat.isActive}
@@ -272,13 +253,12 @@ const CategoryRow = ({ cat, idx, totalCount, isChild, parentName, onEdit, onDele
   </div>
 );
 
-const CategoryDialog = ({ open, onClose, category, categories, mealPeriods, onSave }) => {
+const CategoryDialog = ({ open, onClose, category, categories, onSave }) => {
   const [form, setForm] = useState({
     nameEn: "",
     nameOm: "",
     nameAm: "",
     parentId: "",
-    mealScheduleIds: [],
     displayOrder: 0,
     isActive: true,
   });
@@ -293,7 +273,6 @@ const CategoryDialog = ({ open, onClose, category, categories, mealPeriods, onSa
         nameOm: category.nameOm || "",
         nameAm: category.nameAm || "",
         parentId: category.parentId || "",
-        mealScheduleIds: (category.mealScheduleIds || []).map((ms) => ms._id || ms),
         displayOrder: category.displayOrder || 0,
         isActive: category.isActive !== false,
       });
@@ -303,24 +282,11 @@ const CategoryDialog = ({ open, onClose, category, categories, mealPeriods, onSa
         nameOm: "",
         nameAm: "",
         parentId: "",
-        mealScheduleIds: [],
         displayOrder: 0,
         isActive: true,
       });
     }
   }, [category, open]);
-
-  const toggleMealSchedule = (id) => {
-    setForm((f) => {
-      const has = f.mealScheduleIds.includes(id);
-      return {
-        ...f,
-        mealScheduleIds: has
-          ? f.mealScheduleIds.filter((x) => x !== id)
-          : [...f.mealScheduleIds, id],
-      };
-    });
-  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -333,7 +299,6 @@ const CategoryDialog = ({ open, onClose, category, categories, mealPeriods, onSa
         nameOm: form.nameOm,
         nameAm: form.nameAm,
         parentId: form.parentId || null,
-        mealScheduleIds: form.mealScheduleIds,
         displayOrder: Number(form.displayOrder) || 0,
         isActive: form.isActive,
       };
@@ -402,37 +367,6 @@ const CategoryDialog = ({ open, onClose, category, categories, mealPeriods, onSa
                 </option>
               ))}
             </select>
-          </div>
-
-          {/* Meal Schedules (many-to-many) */}
-          <div>
-            <label className="block text-xs font-medium mb-1">
-              Meal Schedules <span className="text-gray-400">(empty = always available via items)</span>
-            </label>
-            <div className="space-y-1.5 max-h-40 overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-lg p-2">
-              {mealPeriods.length === 0 ? (
-                <p className="text-xs text-gray-400 px-2 py-1">No meal schedules yet</p>
-              ) : (
-                mealPeriods.map((mp) => {
-                  const checked = form.mealScheduleIds.includes(mp._id);
-                  return (
-                    <label
-                      key={mp._id}
-                      className="flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 text-sm"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={() => toggleMealSchedule(mp._id)}
-                        className="accent-amber-600"
-                      />
-                      <span className="flex-1">{mp.nameEn || mp.name}</span>
-                      <span className="text-xs text-gray-400">{mp.startTime} - {mp.endTime}</span>
-                    </label>
-                  );
-                })
-              )}
-            </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-4">

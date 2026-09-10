@@ -649,8 +649,8 @@ const FoodDialog = ({ open, onClose, food, categories, mealPeriods, onSave }) =>
         setForm((f) => ({ ...f, imageUrl: url }));
         toast.success("Image uploaded");
       }
-    } catch {
-      toast.error("Failed to upload image");
+    } catch (e) {
+      toast.error(e.backendMessage || e.message || "Failed to upload image");
     } finally {
       setUploading(false);
     }

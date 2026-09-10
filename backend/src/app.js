@@ -57,7 +57,7 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // 4b. Serve locally-stored images (fallback when Cloudinary is not configured)
 const path = require('path');
-const uploadsDir = path.resolve(process.cwd(), 'uploads');
+const uploadsDir = path.resolve(__dirname, '../uploads');
 app.use('/uploads', express.static(uploadsDir, { maxAge: '7d', immutable: true }));
 
 // 5. HTTP request logging via Morgan + Winston

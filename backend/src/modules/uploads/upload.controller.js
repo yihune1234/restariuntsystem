@@ -26,9 +26,11 @@ class UploadController {
     const { foodId } = req.params;
 
     // 1. Upload new image buffer (Cloudinary when configured, local disk otherwise)
+    // NOTE: folder spelled "restaurant" (not "restraunt") to match the directory
+    // structure documented in the README and actually served from /uploads.
     const uploadResult = await uploadService.uploadImageBuffer(
       req.file.buffer,
-      `restraunt/foods`,
+      `restaurant/foods`,
       req.file.mimetype
     );
 
@@ -60,7 +62,7 @@ class UploadController {
 
     const uploadResult = await uploadService.uploadImageBuffer(
       req.file.buffer,
-      'restraunt/branding',
+      'restaurant/branding',
       req.file.mimetype
     );
 

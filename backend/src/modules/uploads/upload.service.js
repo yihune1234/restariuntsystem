@@ -8,7 +8,7 @@ const { BadRequestError } = require('../../utils/errors');
 const logger = require('../../config/logger');
 
 // Local fallback storage root (used when Cloudinary is not configured).
-const LOCAL_UPLOAD_DIR = path.resolve(process.cwd(), 'uploads');
+const LOCAL_UPLOAD_DIR = path.resolve(__dirname, '../../../uploads');
 
 /** Map an uploaded mimetype to a safe file extension. */
 const EXT_BY_MIME = {
@@ -43,14 +43,47 @@ class UploadService {
         return await this.uploadToCloudinary(buffer, folder);
       } catch (err) {
         // If Cloudinary rejects the account (e.g. invalid cloud_name), do not
-        // fail the whole upload — transparently fall back to local storage so
-        // image uploads keep working while credentials are corrected.
+        // fail the whole upload in development — fall back to local storage so
+        // image uploads keep working while credentials are corrected. In
+        // production, however, the local disk on ephemeral hosts (e.g. Render)
+        // is wiped on every restart/deploy, so silently writing there would
+        // store URLs that 404 later. Fail loudly instead so the operator fixes
+        // Cloudinary rather than shipping broken images.
         if (err && err.code === 'CLOUDINARY_UPLOAD_ERROR') {
+          if (config.isProduction) {
+            logger.error(
+              `Production upload aborted: Cloudinary upload failed (${err.message}). ` +
+              'Local disk fallback is disabled in production because it is ephemeral.'
+            );
+            // Distinguish permission-denied (403) from other failures so the
+            // operator gets an actionable message instead of a misleading
+            // "configure credentials" prompt when the key simply lacks upload rights.
+            const isPermissionDenied = /permission|forbidden|403/i.test(err.message || '');
+            throw new BadRequestError(
+              isPermissionDenied
+                ? 'Image upload rejected: the Cloudinary API key lacks upload permission. ' +
+                  'In the Cloudinary console, edit the API key\'s Allowed actions to include Upload.'
+                : `Image storage (Cloudinary) is not available: ${err.message}`,
+              'CLOUDINARY_UPLOAD_ERROR'
+            );
+          }
           logger.warn(`Cloudinary upload failed (${err.message}). Falling back to local disk storage.`);
           return this.saveLocally(buffer, folder, mimetype);
         }
         throw err;
       }
+    }
+
+    // No Cloudinary credentials configured.
+    if (config.isProduction) {
+      logger.error(
+        'Production upload aborted: CLOUDINARY_* credentials missing. ' +
+        'Local disk fallback is disabled in production because it is ephemeral.'
+      );
+      throw new BadRequestError(
+        'Image storage (Cloudinary) is not configured. Please set valid CLOUDINARY_* credentials.',
+        'CLOUDINARY_NOT_CONFIGURED'
+      );
     }
     return this.saveLocally(buffer, folder, mimetype);
   }
@@ -96,8 +129,8 @@ class UploadService {
       const safeSegments = String(folder)
         .split('/')
         .map((s) => s.replace(/[^a-zA-Z0-9_-]/g, ''))
-        .filter(Boolean)
-        .slice(-2); // keep it shallow: last two segments only
+        .filter(Boolean); // keep the FULL folder path so the URL matches the
+        // directory actually served under /uploads (e.g. restaurant/foods).
       const dir = path.join(LOCAL_UPLOAD_DIR, ...safeSegments);
       await fs.promises.mkdir(dir, { recursive: true });
 

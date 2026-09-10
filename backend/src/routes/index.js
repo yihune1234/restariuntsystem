@@ -25,9 +25,8 @@ router.use('/auth', authRoutes);
 router.use('/users', userRouter);
 router.use('/categories', categoryRouter);
 router.use('/meal-periods', mealPeriodRouter);
-router.use('/food-items', uploadRoutes);
-router.use('/uploads', uploadRoutes);
 router.use('/food-items', foodRouter);
+router.use('/uploads', uploadRoutes);
 router.use('/admin', adminSettingsRoutes);
 
 module.exports = router;

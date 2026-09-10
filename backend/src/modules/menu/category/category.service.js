@@ -3,7 +3,7 @@ const FoodItem = require('../food/food.model');
 const { NotFoundError, ConflictError } = require('../../../utils/errors');
 
 class CategoryService {
-  async createCategory({ name, nameEn, nameOm, nameAm, parentId, displayOrder, mealScheduleIds, isHidden }) {
+  async createCategory({ name, nameEn, nameOm, nameAm, displayOrder, isHidden }) {
     const existing = await Category.findOne({
       name: name.toUpperCase(),
       deletedAt: null,
@@ -13,23 +13,14 @@ class CategoryService {
       throw new ConflictError(`Category '${name}' already exists`, 'CATEGORY_EXISTS');
     }
 
-    if (parentId) {
-      const parent = await Category.findOne({ _id: parentId, deletedAt: null });
-      if (!parent) {
-        throw new NotFoundError('Parent category not found', 'PARENT_CATEGORY_NOT_FOUND');
-      }
-    }
-
     const category = await Category.create({
       name: name.toUpperCase(),
       nameEn: nameEn || '',
       nameOm: nameOm || '',
       nameAm: nameAm || '',
-      parentId: parentId || null,
       displayOrder: displayOrder || 0,
       isActive: true,
       isHidden: isHidden || false,
-      mealScheduleIds: mealScheduleIds || [],
     });
 
     return category;

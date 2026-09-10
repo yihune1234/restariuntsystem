@@ -1,5 +1,7 @@
 const express = require('express');
 const foodController = require('./food.controller');
+const uploadController = require('../../uploads/upload.controller');
+const upload = require('../../../middleware/upload.middleware');
 const {
   createFoodSchema,
   updateFoodSchema,
@@ -24,6 +26,8 @@ foodRouter.patch('/:foodId', validate(updateFoodSchema), requireRoles('OWNER', '
 foodRouter.delete('/:foodId', validate(foodIdParamSchema), requireRoles('OWNER', 'MANAGER'), foodController.deleteFoodItem);
 
 foodRouter.delete('/:foodId/image', validate(foodIdParamSchema), requireRoles('OWNER', 'MANAGER'), foodController.removeImage);
+
+foodRouter.post('/:foodId/image', upload.single('image'), requireRoles('OWNER', 'MANAGER'), uploadController.uploadFoodImage);
 
 foodRouter.patch('/reorder', requireRoles('OWNER', 'MANAGER'), foodController.reorderFoodItems);
 
