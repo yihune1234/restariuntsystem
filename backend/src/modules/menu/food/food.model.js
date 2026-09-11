@@ -47,10 +47,6 @@ const foodItemSchema = new mongoose.Schema(
     imageUrl: { type: String, default: '' },
     imagePublicId: { type: String, default: '' },
     isAvailable: { type: Boolean, default: true, index: true },
-    isAlwaysAvailable: { type: Boolean, default: false, index: true },
-    isHidden: { type: Boolean, default: false, index: true },
-    isFeatured: { type: Boolean, default: false, index: true },
-    isActive: { type: Boolean, default: true, index: true },
     mealScheduleIds: [{
       type: mongoose.Schema.Types.ObjectId,
       ref: 'MealPeriod',
@@ -63,6 +59,7 @@ const foodItemSchema = new mongoose.Schema(
       index: true,
     },
     variantGroups: [VARIANT_GROUP_SCHEMA],
+
     deletedAt: { type: Date, default: null },
   },
   {
@@ -76,8 +73,8 @@ const foodItemSchema = new mongoose.Schema(
   }
 );
 
-foodItemSchema.index({ categoryIds: 1, isActive: 1, isAvailable: 1, displayOrder: 1 });
-foodItemSchema.index({ mealScheduleIds: 1, isActive: 1, isAvailable: 1 });
+foodItemSchema.index({ categoryIds: 1, isAvailable: 1, displayOrder: 1 });
+foodItemSchema.index({ mealScheduleIds: 1, isAvailable: 1 });
 foodItemSchema.index({ name: 1 });
 
 const FoodItem = mongoose.model('FoodItem', foodItemSchema);

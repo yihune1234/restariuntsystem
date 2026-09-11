@@ -20,6 +20,8 @@ const VARIANT_GROUP_SCHEMA = Joi.object({
   options: Joi.array().items(VARIANT_OPTION_SCHEMA).default([]),
 });
 
+
+
 const createFoodSchema = {
   body: Joi.object({
     categoryIds: Joi.array().items(Joi.string().hex().length(24)).min(1).required(),
@@ -35,13 +37,11 @@ const createFoodSchema = {
     preparationTimeMinutes: Joi.number().min(1).max(180).default(15),
     displayOrder: Joi.number().min(0).default(0),
     isAvailable: Joi.boolean().default(true),
-    isAlwaysAvailable: Joi.boolean().default(false),
-    isHidden: Joi.boolean().default(false),
-    isFeatured: Joi.boolean().default(false),
     mealScheduleIds: Joi.array().items(Joi.string().hex().length(24)).default([]),
     tags: Joi.array().items(Joi.string().max(50)).default([]),
     variantGroups: Joi.array().items(VARIANT_GROUP_SCHEMA).default([]),
     imageUrl: Joi.string().allow('').max(2048).default(''),
+
   }),
 };
 
@@ -63,14 +63,11 @@ const updateFoodSchema = {
     preparationTimeMinutes: Joi.number().min(1).max(180),
     displayOrder: Joi.number().min(0),
     isAvailable: Joi.boolean(),
-    isAlwaysAvailable: Joi.boolean(),
-    isHidden: Joi.boolean(),
-    isFeatured: Joi.boolean(),
-    isActive: Joi.boolean(),
     mealScheduleIds: Joi.array().items(Joi.string().hex().length(24)),
     tags: Joi.array().items(Joi.string().max(50)),
     variantGroups: Joi.array().items(VARIANT_GROUP_SCHEMA),
     imageUrl: Joi.string().allow('').max(2048),
+
   }),
 };
 

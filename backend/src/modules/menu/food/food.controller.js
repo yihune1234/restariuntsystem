@@ -9,7 +9,7 @@ class FoodController {
   });
 
   getFoodItems = asyncHandler(async (req, res) => {
-    const { categoryIds, availableOnly, activeOnly, tags } = req.query;
+    const { categoryIds, availableOnly, tags } = req.query;
     const categoryIdList = categoryIds
       ? categoryIds.split(',').map((id) => id.trim()).filter(Boolean)
       : [];
@@ -17,7 +17,6 @@ class FoodController {
     const foodItems = await foodService.getFoodItems({
       categoryIds: categoryIdList,
       availableOnly: availableOnly === 'true',
-      activeOnly: activeOnly === 'true',
       tags: tagList,
     });
     return ApiResponse.success(res, 200, 'Food items retrieved successfully', foodItems);

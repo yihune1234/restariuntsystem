@@ -5,7 +5,7 @@ const { NotFoundError } = require('../../../utils/errors');
 const logger = require('../../../config/logger');
 
 class FoodService {
-  async createFoodItem({ categoryIds, name, nameEn, nameOm, nameAm, description, descriptionEn, descriptionOm, descriptionAm, price, preparationTimeMinutes, displayOrder, isAvailable, isAlwaysAvailable, isHidden, isFeatured, mealScheduleIds, tags, variantGroups }) {
+  async createFoodItem({ categoryIds, name, nameEn, nameOm, nameAm, description, descriptionEn, descriptionOm, descriptionAm, price, preparationTimeMinutes, displayOrder, isAvailable, mealScheduleIds, tags, variantGroups, imageUrl }) {
     if (!categoryIds || categoryIds.length === 0) {
       throw new NotFoundError('At least one category is required', 'CATEGORY_NOT_FOUND');
     }
@@ -33,24 +33,20 @@ class FoodService {
       preparationTimeMinutes: preparationTimeMinutes || 15,
       displayOrder: displayOrder || 0,
       isAvailable: isAvailable !== undefined ? isAvailable : true,
-      isAlwaysAvailable: isAlwaysAvailable || false,
-      isHidden: isHidden || false,
-      isFeatured: isFeatured || false,
-      isActive: true,
       mealScheduleIds: mealScheduleIds || [],
       tags: tags || [],
       variantGroups: variantGroups || [],
+      imageUrl: imageUrl || '',
     });
 
     return foodItem;
   }
 
-  async getFoodItems({ categoryIds = [], availableOnly = false, activeOnly = false, tags } = {}) {
+  async getFoodItems({ categoryIds = [], availableOnly = false, tags } = {}) {
     const filter = { deletedAt: null };
 
     if (categoryIds && categoryIds.length > 0) filter.categoryIds = { $in: categoryIds };
     if (availableOnly) filter.isAvailable = true;
-    if (activeOnly) filter.isActive = true;
     if (tags && tags.length > 0) filter.tags = { $in: tags };
 
     const foodItems = await FoodItem.find(filter)
@@ -159,7 +155,7 @@ class FoodService {
 
     await FoodItem.findOneAndUpdate(
       { _id: foodId, deletedAt: null },
-      { $set: { isActive: false, isAvailable: false, deletedAt: new Date() } },
+      { $set: { isAvailable: false, deletedAt: new Date() } },
       { new: true }
     );
 

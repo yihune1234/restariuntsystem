@@ -22,13 +22,12 @@ const SafeImage = ({ src, alt, className, fallback }) => {
   );
 };
 
-// Meal-schedules are authoritative: once an item has schedules, it only shows
-// in those windows even if it is "always available". With no schedules,
-// isAlwaysAvailable means it shows at any time; otherwise it is hidden.
+// Meal-schedules determine when an item shows. With no schedules, the item
+// is "unscheduled" (hidden from time tabs).
 const classifyItemMealType = (food, periodMap) => {
   const ids = food.mealScheduleIds || [];
   if (ids.length === 0) {
-    return food.isAlwaysAvailable ? "always" : "unscheduled";
+    return "unscheduled";
   }
   let morning = false;
   let afternoon = false;
@@ -48,11 +47,10 @@ const classifyItemMealType = (food, periodMap) => {
 
 const MEAL_TYPE_OPTIONS = [
   { key: "all", label: "All" },
-  { key: "always", label: "Always Available" },
   { key: "morning", label: "Breakfast" },
   { key: "afternoon", label: "Lunch & Dinner" },
   { key: "both", label: "Breakfast + Lunch & Dinner" },
-  { key: "unscheduled", label: "Hidden" },
+  { key: "unscheduled", label: "No Schedule" },
 ];
 
 const MenuItemsPage = ({ categories, onRefresh }) => {
@@ -78,7 +76,7 @@ const MenuItemsPage = ({ categories, onRefresh }) => {
   const fetchFoods = async () => {
     setLoading(true);
     try {
-      const res = await axiosInstance.get("/food-items?activeOnly=false");
+      const res = await axiosInstance.get("/food-items");
       setFoods(res.data?.data || []);
     } catch {
       toast.error("Failed to load food items");
@@ -110,7 +108,7 @@ const MenuItemsPage = ({ categories, onRefresh }) => {
   });
 
   const mealTypeCounts = (() => {
-    const counts = { all: foods.length, always: 0, morning: 0, afternoon: 0, both: 0, unscheduled: 0 };
+    const counts = { all: foods.length, morning: 0, afternoon: 0, both: 0, unscheduled: 0 };
     foods.forEach((f) => {
       counts[classifyItemMealType(f, periodById)] += 1;
     });
@@ -180,11 +178,10 @@ const MenuItemsPage = ({ categories, onRefresh }) => {
 
     if (viewMode === "mealtype") {
       const MEAL_GROUPS = [
-        { key: "always", title: "Always Available", desc: "Shown at any time of day" },
         { key: "morning", title: "Breakfast", desc: "Morning meal" },
         { key: "afternoon", title: "Lunch & Dinner", desc: "Afternoon-Evening meal" },
         { key: "both", title: "Breakfast + Lunch & Dinner", desc: "Served across meal periods" },
-        { key: "unscheduled", title: "Hidden — No Time Window", desc: "Not shown in any customer time tab" },
+        { key: "unscheduled", title: "No Schedule", desc: "Not assigned to any meal period" },
       ];
       return MEAL_GROUPS.map((g) => ({
         ...g,
@@ -263,9 +260,6 @@ const MenuItemsPage = ({ categories, onRefresh }) => {
           {!food.isAvailable && (
             <Badge variant="destructive" className="text-xs px-1 py-0">Unavailable</Badge>
           )}
-          {food.isAlwaysAvailable && (food.mealScheduleIds || []).length === 0 && (
-            <Badge className="bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400 text-xs px-1 py-0">All Day</Badge>
-          )}
         </div>
         <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
           {getCategoryNames(food).length > 0 ? (
@@ -293,7 +287,7 @@ const MenuItemsPage = ({ categories, onRefresh }) => {
         <div className="flex items-center gap-1.5 mt-1 flex-wrap">
           <button
             onClick={() => toggleItemWindow(food, "morning")}
-            title={food.isAlwaysAvailable ? "Restrict or hide this all-day item from the Morning window" : "Visible during the Morning meal"}
+            title="Toggle visibility during the Morning meal"
             className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium transition ${
               foodInWindow(food, morningPeriodIds)
                 ? "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400"
@@ -305,7 +299,7 @@ const MenuItemsPage = ({ categories, onRefresh }) => {
           </button>
           <button
             onClick={() => toggleItemWindow(food, "afternoon")}
-            title={food.isAlwaysAvailable ? "Restrict or hide this all-day item from the Afternoon-Evening window" : "Visible during the Afternoon-Evening meal"}
+            title="Toggle visibility during the Afternoon-Evening meal"
             className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium transition ${
               foodInWindow(food, afternoonPeriodIds)
                 ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-400"
@@ -561,14 +555,14 @@ const FoodDialog = ({ open, onClose, food, categories, mealPeriods, onSave }) =>
     price: "",
     imageUrl: "",
     isAvailable: true,
-    isAlwaysAvailable: false,
-    isActive: true,
     displayOrder: 0,
   });
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [pendingFile, setPendingFile] = useState(null);
 
   useEffect(() => {
+    setPendingFile(null);
     if (food) {
       setForm({
         categoryIds: (food.categoryIds || []).map((c) => c?._id || c),
@@ -582,8 +576,6 @@ const FoodDialog = ({ open, onClose, food, categories, mealPeriods, onSave }) =>
         price: food.price || "",
         imageUrl: food.imageUrl || "",
         isAvailable: food.isAvailable !== false,
-        isAlwaysAvailable: food.isAlwaysAvailable || false,
-        isActive: food.isActive !== false,
         displayOrder: food.displayOrder || 0,
       });
     } else {
@@ -599,8 +591,6 @@ const FoodDialog = ({ open, onClose, food, categories, mealPeriods, onSave }) =>
         price: "",
         imageUrl: "",
         isAvailable: true,
-        isAlwaysAvailable: false,
-        isActive: true,
         displayOrder: 0,
       });
     }
@@ -634,7 +624,9 @@ const FoodDialog = ({ open, onClose, food, categories, mealPeriods, onSave }) =>
     const file = e.target.files?.[0];
     if (!file) return;
     if (!food?._id) {
-      toast.error("Please save the item first before uploading an image");
+      setPendingFile(file);
+      setForm((f) => ({ ...f, imageUrl: URL.createObjectURL(file) }));
+      toast.success("Image will be uploaded after saving");
       return;
     }
     setUploading(true);
@@ -677,15 +669,25 @@ const FoodDialog = ({ open, onClose, food, categories, mealPeriods, onSave }) =>
         price: Number(form.price),
         imageUrl: form.imageUrl,
         isAvailable: form.isAvailable,
-        isAlwaysAvailable: form.isAlwaysAvailable,
-        isActive: form.isActive,
         displayOrder: Number(form.displayOrder) || 0,
       };
       if (food) {
         await axiosInstance.patch(`/food-items/${food._id}`, payload);
         toast.success("Food item updated");
       } else {
-        await axiosInstance.post("/food-items", payload);
+        const res = await axiosInstance.post("/food-items", payload);
+        const newItemId = res.data?.data?._id;
+        if (pendingFile && newItemId) {
+          const formData = new FormData();
+          formData.append("image", pendingFile);
+          try {
+            await axiosInstance.post(`/food-items/${newItemId}/image`, formData, {
+              headers: { "Content-Type": "multipart/form-data" },
+            });
+          } catch {
+            toast.warning("Item created but image upload failed. You can re-upload from edit.");
+          }
+        }
         toast.success("Food item created");
       }
       onSave();
@@ -821,11 +823,10 @@ const FoodDialog = ({ open, onClose, food, categories, mealPeriods, onSave }) =>
                   placeholder="Paste image URL here..."
                   className="h-9 flex-1"
                 />
-                <label className="flex items-center gap-2 px-3 h-9 border border-gray-200 dark:border-gray-700 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 flex-shrink-0 opacity-100"
-                style={{ opacity: food?._id ? 1 : 0.5 }}>
+                <label className="flex items-center gap-2 px-3 h-9 border border-gray-200 dark:border-gray-700 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 flex-shrink-0">
                   <ImagePlus className="size-4" />
                   <span className="text-xs sm:text-sm whitespace-nowrap">{uploading ? "..." : "Upload"}</span>
-                  <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" disabled={uploading || !food?._id} />
+                  <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" disabled={uploading} />
                 </label>
               </div>
               {/* Preview (with default placeholder fallback) */}
@@ -867,21 +868,7 @@ const FoodDialog = ({ open, onClose, food, categories, mealPeriods, onSave }) =>
                 checked={form.isAvailable}
                 onCheckedChange={(v) => setForm((f) => ({ ...f, isAvailable: v }))}
               />
-              <span className="text-xs sm:text-sm">Available</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Switch
-                checked={form.isAlwaysAvailable}
-                onCheckedChange={(v) => setForm((f) => ({ ...f, isAlwaysAvailable: v }))}
-              />
-              <span className="text-xs sm:text-sm">Always Available</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Switch
-                checked={form.isActive}
-                onCheckedChange={(v) => setForm((f) => ({ ...f, isActive: v }))}
-              />
-              <span className="text-xs sm:text-sm">Active</span>
+              <span className="text-xs sm:text-sm">Available (visible in menu)</span>
             </div>
             <div className="flex items-center gap-2">
               <label className="text-xs sm:text-sm">Order</label>

@@ -26,8 +26,6 @@ class PublicMenuController {
       .populate('mealScheduleIds', 'name startTime endTime');
 
     const allFoodItems = await FoodItem.find({
-      isActive: true,
-      isHidden: false,
       isAvailable: true,
       deletedAt: null,
     }).sort({ displayOrder: 1, name: 1 });
@@ -40,32 +38,9 @@ class PublicMenuController {
       allMealPeriods.map((mp) => [mp._id.toString(), mp])
     );
 
-    // Categories that carry meal schedules (their items can be scheduled).
-    const scheduledCategoryIds = new Set(
-      allCategories
-        .filter((cat) => (cat.mealScheduleIds || []).length > 0)
-        .map((cat) => cat._id.toString())
-    );
-
-    // Determine visible items, and which categories each visible item renders in.
-    // The full catalog is returned (across all windows) so the customer app can
-    // filter by its time tabs locally. An item is visible when ANY of the
-    // following holds:
-    //   1. isAlwaysAvailable === true
-    //   2. it is directly mapped to at least one meal schedule (item_meal_schedules junction)
-    //   3. at least one of its categories carries meal schedules
-    const itemsByCategory = new Map(); // categoryId string -> [foodItem]
+    const itemsByCategory = new Map();
 
     allFoodItems.forEach((food) => {
-      const itemVisible =
-        food.isAlwaysAvailable === true ||
-        (food.mealScheduleIds || []).length > 0 ||
-        (food.categoryIds || []).some((cid) =>
-          scheduledCategoryIds.has(cid.toString())
-        );
-
-      if (!itemVisible) return;
-
       const catIds = (food.categoryIds || [])
         .map((cid) => cid.toString())
         .filter((cid) => validCategoryIds.has(cid));
@@ -200,7 +175,6 @@ class PublicMenuController {
       descriptionAm: food.descriptionAm || '',
       price: food.price,
       imageUrl: food.imageUrl,
-      isAlwaysAvailable: food.isAlwaysAvailable,
       mealSchedules: (food.mealScheduleIds || []).map((id) => {
         const mp = mealPeriodById.get(id.toString());
         return {
